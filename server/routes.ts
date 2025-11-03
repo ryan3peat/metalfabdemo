@@ -6,6 +6,7 @@ import localPassport from "./auth/localAuth";
 import { hashPassword, validatePasswordComplexity } from "./auth/localAuth";
 import { insertSupplierSchema } from "@shared/schema";
 import { emailService, generateAccessToken, generateQuoteSubmissionUrl } from "./email/emailService";
+import { validateQuoteAccessToken } from "./middleware/tokenAuth";
 
 // Helper function to get user ID from either OIDC or local auth
 function getUserId(req: any): string | undefined {
@@ -564,6 +565,97 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error updating quote request:", error);
       res.status(500).json({ message: "Failed to update quote request" });
+    }
+  });
+
+  // ============================================================================
+  // PUBLIC API ROUTES (Token-based access - no authentication required)
+  // ============================================================================
+
+  // Get quote request details for public quote submission (token-based access)
+  app.get('/api/public/quote-requests/:id', validateQuoteAccessToken, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const { supplierId } = req.supplierAccess;
+
+      // Get the quote request
+      const request = await storage.getQuoteRequest(id);
+      if (!request) {
+        return res.status(404).json({ message: "Quote request not found" });
+      }
+
+      // Get the supplier details
+      const supplier = await storage.getSupplier(supplierId);
+      if (!supplier) {
+        return res.status(404).json({ message: "Supplier not found" });
+      }
+
+      // Return only necessary information for quote submission
+      res.json({
+        request: {
+          id: request.id,
+          requestNumber: request.requestNumber,
+          materialName: request.materialName,
+          casNumber: request.casNumber,
+          femaNumber: request.femaNumber,
+          quantityNeeded: request.quantityNeeded,
+          unitOfMeasure: request.unitOfMeasure,
+          submitByDate: request.submitByDate,
+          additionalSpecifications: request.additionalSpecifications,
+          status: request.status,
+        },
+        supplier: {
+          id: supplier.id,
+          supplierName: supplier.supplierName,
+          email: supplier.email,
+        },
+      });
+    } catch (error) {
+      console.error("Error fetching public quote request:", error);
+      res.status(500).json({ message: "Failed to fetch quote request" });
+    }
+  });
+
+  // Submit a quote for a quote request (token-based access)
+  app.post('/api/public/quote-requests/:id/submit-quote', validateQuoteAccessToken, async (req: any, res) => {
+    try {
+      const { id: requestId } = req.params;
+      const { supplierId, requestSupplierId } = req.supplierAccess;
+      const quoteData = req.body;
+
+      // Validate required fields
+      if (!quoteData.pricePerUnit || !quoteData.leadTime) {
+        return res.status(400).json({ message: "Price and lead time are required" });
+      }
+
+      // Convert validityDate string to Date if provided
+      if (quoteData.validityDate) {
+        quoteData.validityDate = new Date(quoteData.validityDate);
+      }
+
+      // Create the supplier quote
+      const quote = await storage.createSupplierQuote({
+        requestId,
+        supplierId,
+        pricePerUnit: quoteData.pricePerUnit.toString(),
+        currency: quoteData.currency || 'AUD',
+        moq: quoteData.moq,
+        leadTime: quoteData.leadTime,
+        validityDate: quoteData.validityDate,
+        paymentTerms: quoteData.paymentTerms,
+        additionalNotes: quoteData.additionalNotes,
+        status: 'submitted',
+      });
+
+      // Update request-supplier relationship to mark quote as submitted
+      await storage.updateRequestSupplier(requestSupplierId, {
+        responseSubmittedAt: new Date(),
+      });
+
+      res.status(201).json({ message: "Quote submitted successfully", quote });
+    } catch (error) {
+      console.error("Error submitting quote:", error);
+      res.status(500).json({ message: "Failed to submit quote" });
     }
   });
 

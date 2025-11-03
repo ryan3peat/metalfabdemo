@@ -15,6 +15,7 @@ import Suppliers from "@/pages/suppliers";
 import QuoteRequests from "@/pages/quote-requests";
 import CreateQuoteRequest from "@/pages/create-quote-request";
 import QuoteRequestDetail from "@/pages/quote-request-detail";
+import QuoteSubmission from "@/pages/quote-submission";
 
 function Router() {
   const { isAuthenticated, isLoading, user } = useAuth();
@@ -34,6 +35,7 @@ function Router() {
     return (
       <Switch>
         <Route path="/" component={Landing} />
+        <Route path="/quote-submission/:id" component={QuoteSubmission} />
         <Route component={Landing} />
       </Switch>
     );
