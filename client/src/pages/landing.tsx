@@ -1,6 +1,9 @@
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { FileText, Users, Mail, BarChart3, Shield, Clock } from "lucide-react";
+import { AdminLoginForm } from "@/components/admin-login-form";
 
 export default function Landing() {
   return (
@@ -106,18 +109,35 @@ export default function Landing() {
             </Card>
           </div>
 
-          <div className="text-center space-y-6">
-            <div className="space-y-4">
-              <h3 className="text-2xl font-medium text-foreground">Ready to get started?</h3>
-              <p className="text-muted-foreground">
-                Access the portal with your authorized credentials
-              </p>
-            </div>
-            <Button size="lg" asChild data-testid="button-main-login">
-              <a href="/api/login" className="text-sm font-medium uppercase tracking-wider">
-                LOG IN TO PORTAL
-              </a>
-            </Button>
+          <div className="flex justify-center">
+            <Tabs defaultValue="replit" className="w-full max-w-md">
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="replit" data-testid="tab-replit-auth">
+                  Replit Auth
+                </TabsTrigger>
+                <TabsTrigger value="admin" data-testid="tab-admin-login">
+                  Admin Login
+                </TabsTrigger>
+              </TabsList>
+              
+              <TabsContent value="replit" className="space-y-4 mt-6">
+                <div className="text-center space-y-4">
+                  <h3 className="text-2xl font-medium text-foreground">Ready to get started?</h3>
+                  <p className="text-muted-foreground">
+                    Sign in with your Replit account
+                  </p>
+                  <Button size="lg" asChild data-testid="button-main-login" className="w-full">
+                    <a href="/api/login" className="text-sm font-medium uppercase tracking-wider">
+                      LOG IN WITH REPLIT
+                    </a>
+                  </Button>
+                </div>
+              </TabsContent>
+
+              <TabsContent value="admin" className="mt-6">
+                <AdminLoginForm />
+              </TabsContent>
+            </Tabs>
           </div>
 
           <div className="text-center text-sm text-muted-foreground border-t border-border pt-8">
