@@ -101,8 +101,32 @@ export async function setupAuth(app: Express) {
     }
   };
 
-  passport.serializeUser((user: Express.User, cb) => cb(null, user));
-  passport.deserializeUser((user: Express.User, cb) => cb(null, user));
+  passport.serializeUser((user: any, cb) => {
+    // Support both OIDC and local auth
+    if (user.claims) {
+      // OIDC user - serialize with claims
+      cb(null, user);
+    } else {
+      // Local auth user - serialize with authType flag
+      cb(null, { localAuthUser: user, authType: "local" });
+    }
+  });
+  
+  passport.deserializeUser(async (user: any, cb) => {
+    // Support both OIDC and local auth
+    if (user.authType === "local") {
+      // Local auth - fetch fresh user data from database
+      try {
+        const freshUser = await storage.getUser(user.localAuthUser.id);
+        cb(null, { localAuthUser: freshUser, authType: "local" });
+      } catch (error) {
+        cb(error);
+      }
+    } else {
+      // OIDC - return as-is
+      cb(null, user);
+    }
+  });
 
   app.get("/api/login", (req, res, next) => {
     ensureStrategy(req.hostname);
@@ -135,7 +159,21 @@ export async function setupAuth(app: Express) {
 export const isAuthenticated: RequestHandler = async (req, res, next) => {
   const user = req.user as any;
 
-  if (!req.isAuthenticated() || !user.expires_at) {
+  if (!req.isAuthenticated()) {
+    return res.status(401).json({ message: "Unauthorized" });
+  }
+
+  // Support local auth (no token refresh needed)
+  if (user.authType === "local") {
+    // Verify user is still active
+    if (user.localAuthUser && !user.localAuthUser.active) {
+      return res.status(401).json({ message: "Account is inactive" });
+    }
+    return next();
+  }
+
+  // OIDC auth - check token expiry and refresh if needed
+  if (!user.expires_at) {
     return res.status(401).json({ message: "Unauthorized" });
   }
 
