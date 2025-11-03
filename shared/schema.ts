@@ -49,6 +49,7 @@ export const users = pgTable("users", {
   profileImageUrl: varchar("profile_image_url"),
   role: roleEnum("role").notNull().default('supplier'),
   companyName: varchar("company_name"),
+  active: boolean("active").default(true).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -110,6 +111,8 @@ export const requestSuppliers = pgTable("request_suppliers", {
   id: uuid("id").primaryKey().defaultRandom(),
   requestId: uuid("request_id").notNull().references(() => quoteRequests.id, { onDelete: 'cascade' }),
   supplierId: uuid("supplier_id").notNull().references(() => suppliers.id, { onDelete: 'cascade' }),
+  accessToken: varchar("access_token", { length: 64 }).unique(),
+  tokenExpiresAt: timestamp("token_expires_at"),
   emailSentAt: timestamp("email_sent_at"),
   emailOpenedAt: timestamp("email_opened_at"),
   responseSubmittedAt: timestamp("response_submitted_at"),
