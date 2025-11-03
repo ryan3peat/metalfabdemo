@@ -381,16 +381,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const { id } = req.params;
-      const request = await storage.getQuoteRequest(id);
+      const details = await storage.getQuoteRequestDetails(id);
       
-      if (!request) {
+      if (!details) {
         return res.status(404).json({ message: "Quote request not found" });
       }
 
-      res.json(request);
+      res.json(details);
     } catch (error) {
-      console.error("Error fetching quote request:", error);
-      res.status(500).json({ message: "Failed to fetch quote request" });
+      console.error("Error fetching quote request details:", error);
+      res.status(500).json({ message: "Failed to fetch quote request details" });
     }
   });
 

@@ -50,6 +50,18 @@ export interface IStorage {
   getSupplierQuotes(requestId: string): Promise<SupplierQuote[]>;
   createSupplierQuote(quote: InsertSupplierQuote): Promise<SupplierQuote>;
   
+  // Quote request details with all related data
+  getQuoteRequestDetails(requestId: string): Promise<{
+    request: QuoteRequest;
+    suppliers: Array<{
+      id: string;
+      supplierName: string;
+      email: string;
+      requestSupplierId: string;
+      quote: SupplierQuote | null;
+    }>;
+  } | undefined>;
+  
   // Utility
   generateRfqNumber(): Promise<string>;
 }
@@ -209,6 +221,53 @@ export class DatabaseStorage implements IStorage {
   async createSupplierQuote(quoteData: InsertSupplierQuote): Promise<SupplierQuote> {
     const [quote] = await db.insert(supplierQuotes).values(quoteData).returning();
     return quote;
+  }
+
+  async getQuoteRequestDetails(requestId: string): Promise<{
+    request: QuoteRequest;
+    suppliers: Array<{
+      id: string;
+      supplierName: string;
+      email: string;
+      requestSupplierId: string;
+      quote: SupplierQuote | null;
+    }>;
+  } | undefined> {
+    // Get the quote request
+    const [request] = await db.select().from(quoteRequests).where(eq(quoteRequests.id, requestId));
+    if (!request) return undefined;
+
+    // Get all suppliers for this request with their quotes
+    const requestSuppliersData = await db
+      .select({
+        requestSupplierId: requestSuppliers.id,
+        supplierId: requestSuppliers.supplierId,
+        supplierName: suppliers.supplierName,
+        email: suppliers.email,
+      })
+      .from(requestSuppliers)
+      .leftJoin(suppliers, eq(requestSuppliers.supplierId, suppliers.id))
+      .where(eq(requestSuppliers.requestId, requestId));
+
+    // Get all quotes for this request
+    const quotes = await this.getSupplierQuotes(requestId);
+
+    // Map suppliers with their quotes
+    const suppliersWithQuotes = requestSuppliersData.map(rs => {
+      const quote = quotes.find(q => q.supplierId === rs.supplierId) || null;
+      return {
+        id: rs.supplierId!,
+        supplierName: rs.supplierName!,
+        email: rs.email!,
+        requestSupplierId: rs.requestSupplierId,
+        quote,
+      };
+    });
+
+    return {
+      request,
+      suppliers: suppliersWithQuotes,
+    };
   }
 
   // Utility
