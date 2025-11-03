@@ -1,4 +1,4 @@
-import { Home, Users, FileText, Settings, LogOut, User, BarChart3, Building2 } from "lucide-react";
+import { Home, Users, FileText, Settings, LogOut, User, BarChart3, Building2, FlaskConical } from "lucide-react";
 import {
   Sidebar,
   SidebarContent,
@@ -25,6 +25,11 @@ const adminMenuItems = [
     title: "Suppliers",
     url: "/suppliers",
     icon: Building2,
+  },
+  {
+    title: "Raw Materials",
+    url: "/raw-materials",
+    icon: FlaskConical,
   },
   {
     title: "User Management",
@@ -93,7 +98,10 @@ export function AppSidebar() {
               {menuItems.map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton asChild data-active={location === item.url}>
-                    <Link href={item.url}>
+                    <Link 
+                      href={item.url}
+                      data-testid={`link-${item.title.toLowerCase().replace(/\s+/g, '-')}`}
+                    >
                       <item.icon className="h-4 w-4" />
                       <span>{item.title}</span>
                     </Link>

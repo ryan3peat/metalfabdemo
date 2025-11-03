@@ -343,6 +343,54 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Raw Materials Routes
+  app.get('/api/raw-materials', isAuthenticated, async (req: any, res) => {
+    try {
+      const materials = await storage.getRawMaterials();
+      res.json(materials);
+    } catch (error) {
+      console.error("Error fetching raw materials:", error);
+      res.status(500).json({ message: "Failed to fetch raw materials" });
+    }
+  });
+
+  app.get('/api/raw-materials/:id', isAuthenticated, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const material = await storage.getRawMaterial(id);
+      
+      if (!material) {
+        return res.status(404).json({ message: "Raw material not found" });
+      }
+
+      res.json(material);
+    } catch (error) {
+      console.error("Error fetching raw material:", error);
+      res.status(500).json({ message: "Failed to fetch raw material" });
+    }
+  });
+
+  app.post('/api/raw-materials', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserId(req);
+      if (!userId) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const currentUser = await storage.getUser(userId);
+      
+      if (currentUser?.role !== 'admin' && currentUser?.role !== 'procurement') {
+        return res.status(403).json({ message: "Forbidden: Admin or procurement access required" });
+      }
+
+      const material = await storage.createRawMaterial(req.body);
+      res.status(201).json(material);
+    } catch (error) {
+      console.error("Error creating raw material:", error);
+      res.status(500).json({ message: "Failed to create raw material" });
+    }
+  });
+
   // Health check
   app.get("/api/health", (req, res) => {
     res.json({ status: "ok", message: "Essential Flavours Supplier Portal API" });
