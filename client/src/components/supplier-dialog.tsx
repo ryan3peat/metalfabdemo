@@ -32,12 +32,7 @@ import { X } from "lucide-react";
 import type { Supplier } from "@shared/schema";
 
 const supplierFormSchema = insertSupplierSchema.extend({
-  phone: z.string().optional().default(""),
-  location: z.string().optional().default(""),
-  moq: z.string().optional().default(""),
-  leadTimes: z.string().optional().default(""),
-  paymentTerms: z.string().optional().default(""),
-  certificationsInput: z.string().optional(),
+  certificationsInput: z.string().optional().default(""),
 });
 
 type SupplierFormData = z.infer<typeof supplierFormSchema>;
@@ -145,12 +140,24 @@ export function SupplierDialog({ open, onOpenChange, supplier }: SupplierDialogP
   });
 
   const onSubmit = (data: SupplierFormData) => {
+    console.log("onSubmit called with data:", data);
     const { certificationsInput, ...supplierData } = data;
     
+    const cleanedData = {
+      ...supplierData,
+      phone: supplierData.phone?.trim() || null,
+      location: supplierData.location?.trim() || null,
+      moq: supplierData.moq?.trim() || null,
+      leadTimes: supplierData.leadTimes?.trim() || null,
+      paymentTerms: supplierData.paymentTerms?.trim() || null,
+    };
+    
+    console.log("Submitting cleaned data:", cleanedData);
+    
     if (isEditing) {
-      updateMutation.mutate(supplierData);
+      updateMutation.mutate(cleanedData);
     } else {
-      createMutation.mutate(supplierData);
+      createMutation.mutate(cleanedData);
     }
   };
 
