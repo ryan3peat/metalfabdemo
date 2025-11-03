@@ -3,18 +3,18 @@
 ## Project Overview
 A comprehensive B2B supplier portal for Essential Flavours, an Australian flavour manufacturer. The portal facilitates quote request management, supplier relationships, and procurement workflows with role-based access control.
 
-## Current Status: Module 1 Complete ✅
+## Current Status: Module 2 Complete ✅
 
 ### Module 1: Database Schema & Foundation Setup
 **Status:** ✅ Complete
 
 **Implemented:**
 - Complete database schema with 6 core tables:
-  - `users` - User accounts with role-based access (admin, supplier, procurement)
+  - `users` - User accounts with role-based access (admin, supplier, procurement) + active status
   - `suppliers` - Supplier directory with contact info, certifications, and capabilities
   - `raw_materials` - Materials catalog with CAS numbers, categories, and forms
   - `quote_requests` - RFQ management with auto-generated request numbers
-  - `request_suppliers` - Junction table tracking email engagement
+  - `request_suppliers` - Junction table tracking email engagement + token-based access (accessToken, tokenExpiresAt)
   - `supplier_quotes` - Quote submissions with pricing and terms
 
 - Authentication system using Replit Auth (OpenID Connect)
@@ -40,14 +40,39 @@ A comprehensive B2B supplier portal for Essential Flavours, an Australian flavou
 
 ---
 
-## Upcoming Modules
-
 ### Module 2: Authentication & User Management
-- Login page with role-based redirection
-- User registration flow for suppliers
-- Password reset functionality
-- Admin user management interface
-- Session timeout and security features
+**Status:** ✅ Complete
+
+**Implemented:**
+- Landing page for logged-out users with professional design following Material Design guidelines
+- Replit Auth integration (OpenID Connect) with login button
+- Role-based authentication and routing:
+  - Admin/Procurement → Admin Dashboard
+  - Supplier → Supplier Dashboard
+- Protected routes with automatic redirection
+- Admin User Management interface:
+  - List all users with search/filter
+  - Update user roles (admin, procurement, supplier)
+  - Activate/deactivate user accounts
+  - Permission checks (admin and procurement can manage users)
+- Authentication utilities (`useAuth` hook, `authUtils.ts`)
+- Role-based sidebar navigation
+- Proper React component structure with QueryClientProvider
+- Token-based quote submission support (accessToken fields in request_suppliers table)
+
+**Pages Created:**
+- `/` - Landing page (logged out) / Dashboard (logged in, role-based)
+- `/users` - User Management (admin/procurement only)
+
+**Security Features:**
+- Session-based authentication with database persistence
+- Role-based access control (RBAC)
+- Protected API routes with authorization checks
+- Token-based supplier access for frictionless quote submission
+
+---
+
+## Upcoming Modules
 
 ### Module 3: Supplier Management
 - Supplier list with search/sort/filter
