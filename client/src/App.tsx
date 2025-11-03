@@ -14,6 +14,7 @@ import UserManagement from "@/pages/user-management";
 import Suppliers from "@/pages/suppliers";
 import QuoteRequests from "@/pages/quote-requests";
 import CreateQuoteRequest from "@/pages/create-quote-request";
+import QuoteRequestDetail from "@/pages/quote-request-detail";
 
 function Router() {
   const { isAuthenticated, isLoading, user } = useAuth();
@@ -46,6 +47,7 @@ function Router() {
       {isAdmin && <Route path="/suppliers" component={Suppliers} />}
       {isAdmin && <Route path="/quote-requests" component={QuoteRequests} />}
       {isAdmin && <Route path="/quote-requests/create" component={CreateQuoteRequest} />}
+      {isAdmin && <Route path="/quote-requests/:id" component={QuoteRequestDetail} />}
       {isAdmin && <Route path="/users" component={UserManagement} />}
       <Route component={NotFound} />
     </Switch>
