@@ -42,6 +42,17 @@ The portal adheres to Material Design principles, utilizing the Roboto font fami
     -   Fully tested end-to-end workflow with E2E tests
 -   **Critical Technical Fix:** Resolved frontend routing issue where wouter's `useLocation()` only returns pathname. Fixed by using `window.location.search` for query parameter extraction, enabling proper token validation on public routes.
 
+#### Module 7: Quote Comparison & Review (Completed)
+-   **Quote Request Detail Page:** Comprehensive detail page at `/quote-requests/:id` displaying:
+    -   Summary cards showing: quotes received count (X/Y format), submit-by date, and best quote price
+    -   Material details section with all specifications
+    -   Supplier comparison table with columns: Supplier, Price per Unit, Lead Time, MOQ, Payment Terms, Status, Actions
+    -   Status badges: "Submitted" (green) for completed quotes, "Pending" (yellow) for awaiting quotes
+-   **Enhanced API Endpoint:** Modified `GET /api/quote-requests/:id` to return joined data from `quote_requests`, `request_suppliers`, and `supplier_quotes` tables with complete quote information
+-   **Quotes Received Column:** Added to Quote Requests list table showing "X / Y" format (quotes received / total suppliers) with green badge indicator when quotes are received
+-   **Backend Optimization:** Implemented Set-based deduplication in `getQuoteRequests()` to accurately count unique suppliers and submitted quotes per request
+-   **Critical Bug Fix:** Resolved foreign key constraint violation in `upsertUser()` method that occurred during OIDC login. Fix excludes the `id` field from update operations to prevent attempts to modify primary keys referenced by other tables.
+
 ### System Design Choices
 -   **Modular Development:** The project is built in modular phases, ensuring each feature set is complete and testable.
 -   **Role-Based Access Control (RBAC):** Granular permissions for Admin, Supplier, and Procurement roles.
