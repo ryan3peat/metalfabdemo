@@ -5,6 +5,7 @@ import { setupAuth, isAuthenticated } from "./replitAuth";
 import localPassport from "./auth/localAuth";
 import { hashPassword, validatePasswordComplexity } from "./auth/localAuth";
 import { insertSupplierSchema } from "@shared/schema";
+import { emailService, generateAccessToken, generateQuoteSubmissionUrl } from "./email/emailService";
 
 // Helper function to get user ID from either OIDC or local auth
 function getUserId(req: any): string | undefined {
@@ -424,13 +425,55 @@ export async function registerRoutes(app: Express): Promise<Server> {
         createdBy: userId,
       });
 
-      // Create request-supplier relationships
+      // Create request-supplier relationships and send email notifications
       if (supplierIds && Array.isArray(supplierIds)) {
         for (const supplierId of supplierIds) {
-          await storage.createRequestSupplier({
+          // Generate unique access token for this supplier
+          const accessToken = generateAccessToken();
+          const tokenExpiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000); // 30 days
+
+          // Create request-supplier relationship with token
+          const requestSupplier = await storage.createRequestSupplier({
             requestId: quoteRequest.id,
             supplierId: supplierId,
+            accessToken,
+            tokenExpiresAt,
           });
+
+          // Fetch supplier details for email
+          const supplier = await storage.getSupplier(supplierId);
+          
+          if (supplier && supplier.email) {
+            // Send RFQ notification email
+            const quoteSubmissionUrl = generateQuoteSubmissionUrl(quoteRequest.id, accessToken);
+            
+            const emailResult = await emailService.sendRFQNotification(
+              {
+                email: supplier.email,
+                name: supplier.supplierName,
+                supplierId: supplier.id,
+              },
+              {
+                requestNumber: quoteRequest.requestNumber,
+                materialName: quoteRequest.materialName,
+                casNumber: quoteRequest.casNumber || undefined,
+                femaNumber: quoteRequest.femaNumber || undefined,
+                quantityNeeded: quoteRequest.quantityNeeded,
+                unitOfMeasure: quoteRequest.unitOfMeasure,
+                submitByDate: quoteRequest.submitByDate,
+                additionalSpecifications: quoteRequest.additionalSpecifications || undefined,
+                accessToken,
+                quoteSubmissionUrl,
+              }
+            );
+
+            // Update request-supplier with email sent timestamp if successful
+            if (emailResult.success) {
+              await storage.updateRequestSupplier(requestSupplier.id, {
+                emailSentAt: new Date(),
+              });
+            }
+          }
         }
       }
 
