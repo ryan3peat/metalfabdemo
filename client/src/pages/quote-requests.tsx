@@ -24,6 +24,11 @@ import { Plus, Search, FileText } from "lucide-react";
 import { format } from "date-fns";
 import type { QuoteRequest } from "@shared/schema";
 
+type QuoteRequestWithCounts = QuoteRequest & {
+  quotesReceived?: number;
+  totalSuppliers?: number;
+};
+
 const statusColors = {
   draft: "bg-gray-500/10 text-gray-500 border-gray-500/20",
   active: "bg-blue-500/10 text-blue-500 border-blue-500/20",
@@ -35,7 +40,7 @@ export default function QuoteRequests() {
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
 
-  const { data: requests = [], isLoading } = useQuery<QuoteRequest[]>({
+  const { data: requests = [], isLoading } = useQuery<QuoteRequestWithCounts[]>({
     queryKey: ["/api/quote-requests"],
   });
 
@@ -133,6 +138,7 @@ export default function QuoteRequests() {
                     <TableHead>RFQ Number</TableHead>
                     <TableHead>Material</TableHead>
                     <TableHead>Quantity</TableHead>
+                    <TableHead>Quotes</TableHead>
                     <TableHead>Submit By</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Created</TableHead>
@@ -164,6 +170,24 @@ export default function QuoteRequests() {
                       </TableCell>
                       <TableCell>
                         {request.quantityNeeded} {request.unitOfMeasure}
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <span 
+                            className="font-medium" 
+                            data-testid={`text-quotes-${request.id}`}
+                          >
+                            {request.quotesReceived ?? 0} / {request.totalSuppliers ?? 0}
+                          </span>
+                          {(request.quotesReceived ?? 0) > 0 && (
+                            <Badge 
+                              variant="outline" 
+                              className="bg-green-500/10 text-green-500 border-green-500/20 text-xs"
+                            >
+                              {request.quotesReceived}
+                            </Badge>
+                          )}
+                        </div>
                       </TableCell>
                       <TableCell>
                         {format(new Date(request.submitByDate), "MMM d, yyyy")}

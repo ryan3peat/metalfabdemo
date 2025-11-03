@@ -180,7 +180,56 @@ export class DatabaseStorage implements IStorage {
 
   // Quote request operations
   async getQuoteRequests(): Promise<QuoteRequest[]> {
-    return await db.select().from(quoteRequests).orderBy(desc(quoteRequests.createdAt));
+    // Get all quote requests with quote counts
+    const requests = await db
+      .select({
+        quoteRequest: quoteRequests,
+        supplierId: requestSuppliers.supplierId,
+        quoteId: supplierQuotes.id,
+      })
+      .from(quoteRequests)
+      .leftJoin(requestSuppliers, eq(requestSuppliers.requestId, quoteRequests.id))
+      .leftJoin(
+        supplierQuotes,
+        and(
+          eq(supplierQuotes.requestId, quoteRequests.id),
+          eq(supplierQuotes.supplierId, requestSuppliers.supplierId)
+        )
+      )
+      .orderBy(desc(quoteRequests.createdAt));
+
+    // Group by quote request and count unique suppliers/quotes
+    const requestsMap = new Map<string, {
+      request: QuoteRequest;
+      suppliers: Set<string>;
+      quotes: Set<string>;
+    }>();
+    
+    for (const row of requests) {
+      const request = row.quoteRequest;
+      if (!requestsMap.has(request.id)) {
+        requestsMap.set(request.id, {
+          request,
+          suppliers: new Set(),
+          quotes: new Set(),
+        });
+      }
+      
+      const mapped = requestsMap.get(request.id)!;
+      if (row.supplierId) {
+        mapped.suppliers.add(row.supplierId);
+      }
+      if (row.quoteId) {
+        mapped.quotes.add(row.quoteId);
+      }
+    }
+
+    // Convert to final format with counts
+    return Array.from(requestsMap.values()).map(({ request, suppliers, quotes }) => ({
+      ...request,
+      quotesReceived: quotes.size,
+      totalSuppliers: suppliers.size,
+    }));
   }
 
   async getQuoteRequest(id: string): Promise<QuoteRequest | undefined> {
