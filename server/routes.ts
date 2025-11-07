@@ -109,33 +109,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // For OIDC users logging in for the first time, create user record
       if (!user && req.user?.claims) {
         const claims = req.user.claims;
-        console.log('[DEBUG /api/auth/user] Creating new user from OIDC claims:', JSON.stringify(claims));
         
-        // Determine role based on email domain and patterns
-        let role: 'admin' | 'supplier' | 'procurement' = 'supplier';
-        const email = claims.email?.toLowerCase() || '';
-        
-        // Admin detection: @essentialflavours.com.au emails or contains admin/procurement
-        if (email.includes('@essentialflavours.com.au')) {
-          if (email.includes('admin') || email.includes('procurement')) {
-            role = 'admin';
-          } else {
-            role = 'procurement'; // Other internal staff
-          }
-        }
-        
-        console.log('[DEBUG /api/auth/user] Determined role:', role, 'for email:', email);
-        
+        // Default all new OIDC users to 'supplier' role for security
+        // Admins must manually promote users to admin/procurement roles via User Management
         user = await storage.upsertUser({
           id: claims.sub,
           email: claims.email,
           firstName: claims.first_name || claims.given_name || 'User',
           lastName: claims.last_name || claims.family_name || '',
-          role,
+          role: 'supplier',
           active: true,
         });
-        
-        console.log('[DEBUG /api/auth/user] User created/updated:', JSON.stringify(user));
       }
       
       res.json(user);
