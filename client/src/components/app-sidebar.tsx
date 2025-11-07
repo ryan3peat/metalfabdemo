@@ -41,7 +41,7 @@ const adminMenuItems = [
 const supplierMenuItems = [
   {
     title: "Dashboard",
-    url: "/",
+    url: "/supplier/dashboard",
     icon: Home,
   },
 ];

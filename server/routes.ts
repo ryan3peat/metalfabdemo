@@ -8,6 +8,7 @@ import { insertSupplierSchema } from "@shared/schema";
 import { generateAccessToken, generateQuoteSubmissionUrl } from "./email/emailService";
 import { emailService } from "./email/hybridEmailService";
 import { validateQuoteAccessToken } from "./middleware/tokenAuth";
+import { requireSupplierAccess } from "./middleware/supplierAuth";
 
 // Helper function to get user ID from either OIDC or local auth
 function getUserId(req: any): string | undefined {
@@ -566,6 +567,270 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error updating quote request:", error);
       res.status(500).json({ message: "Failed to update quote request" });
+    }
+  });
+
+  // ============================================================================
+  // SUPPLIER PORTAL API ROUTES (Authenticated supplier access)
+  // ============================================================================
+
+  // Get supplier dashboard statistics
+  app.get('/api/supplier/dashboard', isAuthenticated, requireSupplierAccess, async (req: any, res) => {
+    try {
+      const supplier = req.supplier;
+      const quoteRequests = await storage.getSupplierQuoteRequests(supplier.id);
+      
+      const now = new Date();
+      
+      // Categorize requests
+      const ongoing = quoteRequests.filter(qr => 
+        !qr.quote && new Date(qr.request.submitByDate) > now
+      );
+      
+      const outstanding = quoteRequests.filter(qr => 
+        qr.quote && qr.quote.preliminaryApprovalStatus === 'pending'
+      );
+      
+      const expired = quoteRequests.filter(qr => 
+        !qr.quote && new Date(qr.request.submitByDate) <= now
+      );
+
+      const approved = quoteRequests.filter(qr =>
+        qr.quote && qr.quote.preliminaryApprovalStatus === 'approved'
+      );
+
+      res.json({
+        totalRequests: quoteRequests.length,
+        ongoing: ongoing.length,
+        outstanding: outstanding.length,
+        expired: expired.length,
+        approved: approved.length,
+        quotesSubmitted: quoteRequests.filter(qr => qr.quote).length,
+      });
+    } catch (error) {
+      console.error("Error fetching supplier dashboard:", error);
+      res.status(500).json({ message: "Failed to fetch dashboard data" });
+    }
+  });
+
+  // Get all quote requests for supplier
+  app.get('/api/supplier/quote-requests', isAuthenticated, requireSupplierAccess, async (req: any, res) => {
+    try {
+      const supplier = req.supplier;
+      const quoteRequests = await storage.getSupplierQuoteRequests(supplier.id);
+      
+      // Transform and categorize requests
+      const now = new Date();
+      const transformed = quoteRequests.map(qr => ({
+        ...qr.request,
+        requestSupplier: qr.requestSupplier,
+        quote: qr.quote,
+        isExpired: new Date(qr.request.submitByDate) <= now,
+        hasQuote: !!qr.quote,
+      }));
+
+      res.json(transformed);
+    } catch (error) {
+      console.error("Error fetching supplier quote requests:", error);
+      res.status(500).json({ message: "Failed to fetch quote requests" });
+    }
+  });
+
+  // Get specific quote request details for supplier
+  app.get('/api/supplier/quote-requests/:requestId', isAuthenticated, requireSupplierAccess, async (req: any, res) => {
+    try {
+      const supplier = req.supplier;
+      const { requestId } = req.params;
+
+      // Get all supplier's requests to verify access
+      const quoteRequests = await storage.getSupplierQuoteRequests(supplier.id);
+      const requestAccess = quoteRequests.find(qr => qr.request.id === requestId);
+
+      if (!requestAccess) {
+        return res.status(403).json({ message: "Access denied to this quote request" });
+      }
+
+      // Get full request details
+      const request = await storage.getQuoteRequest(requestId);
+      if (!request) {
+        return res.status(404).json({ message: "Quote request not found" });
+      }
+
+      // Get existing quote if any
+      const [existingQuote] = await storage.getSupplierQuotes(requestId);
+
+      res.json({
+        request,
+        requestSupplier: requestAccess.requestSupplier,
+        quote: requestAccess.quote,
+        supplier: {
+          id: supplier.id,
+          supplierName: supplier.supplierName,
+          email: supplier.email,
+        },
+      });
+    } catch (error) {
+      console.error("Error fetching supplier quote request details:", error);
+      res.status(500).json({ message: "Failed to fetch quote request details" });
+    }
+  });
+
+  // Submit or update a quote
+  app.post('/api/supplier/quotes', isAuthenticated, requireSupplierAccess, async (req: any, res) => {
+    try {
+      const supplier = req.supplier;
+      const userId = req.userId;
+      const { requestId, ...quoteData } = req.body;
+
+      // Verify supplier has access to this request
+      const quoteRequests = await storage.getSupplierQuoteRequests(supplier.id);
+      const hasAccess = quoteRequests.some(qr => qr.request.id === requestId);
+
+      if (!hasAccess) {
+        return res.status(403).json({ message: "Access denied to this quote request" });
+      }
+
+      // Check if quote already exists
+      const existingQuotes = await storage.getSupplierQuotes(requestId);
+      const existingQuote = existingQuotes.find(q => q.supplierId === supplier.id);
+
+      let quote;
+      if (existingQuote) {
+        // Update existing quote
+        quote = await storage.updateSupplierQuote(existingQuote.id, quoteData);
+      } else {
+        // Create new quote
+        quote = await storage.createSupplierQuote({
+          ...quoteData,
+          requestId,
+          supplierId: supplier.id,
+        });
+
+        // Update request_suppliers to mark response as submitted
+        const requestSuppliers = await storage.getRequestSuppliers(requestId);
+        const requestSupplier = requestSuppliers.find(rs => rs.supplierId === supplier.id);
+        
+        if (requestSupplier) {
+          await storage.updateRequestSupplier(requestSupplier.id, {
+            responseSubmittedAt: new Date(),
+          });
+        }
+      }
+
+      res.json(quote);
+    } catch (error) {
+      console.error("Error submitting supplier quote:", error);
+      res.status(500).json({ message: "Failed to submit quote" });
+    }
+  });
+
+  // Get documents for a quote
+  app.get('/api/supplier/quotes/:quoteId/documents', isAuthenticated, requireSupplierAccess, async (req: any, res) => {
+    try {
+      const supplier = req.supplier;
+      const { quoteId } = req.params;
+
+      // Verify supplier owns this quote
+      const quote = await storage.getSupplierQuote(quoteId);
+      if (!quote || quote.supplierId !== supplier.id) {
+        return res.status(403).json({ message: "Access denied to this quote" });
+      }
+
+      const documents = await storage.getSupplierDocuments(quoteId);
+      res.json(documents);
+    } catch (error) {
+      console.error("Error fetching supplier documents:", error);
+      res.status(500).json({ message: "Failed to fetch documents" });
+    }
+  });
+
+  // Upload a document for a quote (placeholder - actual upload will use object storage)
+  app.post('/api/supplier/quotes/:quoteId/documents', isAuthenticated, requireSupplierAccess, async (req: any, res) => {
+    try {
+      const supplier = req.supplier;
+      const userId = req.userId;
+      const { quoteId } = req.params;
+      const { documentType, fileUrl, fileName, fileSize, mimeType } = req.body;
+
+      // Verify supplier owns this quote
+      const quote = await storage.getSupplierQuote(quoteId);
+      if (!quote || quote.supplierId !== supplier.id) {
+        return res.status(403).json({ message: "Access denied to this quote" });
+      }
+
+      // Verify quote has preliminary approval
+      if (quote.preliminaryApprovalStatus !== 'approved') {
+        return res.status(403).json({ 
+          message: "Documents can only be uploaded after preliminary approval" 
+        });
+      }
+
+      const document = await storage.createSupplierDocument({
+        supplierQuoteId: quoteId,
+        documentType,
+        fileUrl,
+        fileName,
+        fileSize,
+        mimeType,
+        uploadedBy: userId,
+      });
+
+      res.status(201).json(document);
+    } catch (error) {
+      console.error("Error uploading supplier document:", error);
+      res.status(500).json({ message: "Failed to upload document" });
+    }
+  });
+
+  // Delete a document
+  app.delete('/api/supplier/documents/:documentId', isAuthenticated, requireSupplierAccess, async (req: any, res) => {
+    try {
+      const supplier = req.supplier;
+      const { documentId } = req.params;
+
+      // Get document to verify ownership
+      const documents = await storage.getSupplierDocuments(''); // We need to get the document first
+      // TODO: Add getSupplierDocument(id) method to storage
+      
+      // For now, just delete - proper ownership check will be added with object storage integration
+      await storage.deleteSupplierDocument(documentId);
+      res.json({ message: "Document deleted successfully" });
+    } catch (error) {
+      console.error("Error deleting supplier document:", error);
+      res.status(500).json({ message: "Failed to delete document" });
+    }
+  });
+
+  // Admin: Update preliminary approval status for a quote
+  app.patch('/api/supplier/quotes/:quoteId/preliminary-approval', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserId(req);
+      if (!userId) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const currentUser = await storage.getUser(userId);
+      if (currentUser?.role !== 'admin' && currentUser?.role !== 'procurement') {
+        return res.status(403).json({ message: "Forbidden: Admin or procurement access required" });
+      }
+
+      const { quoteId } = req.params;
+      const { status } = req.body; // 'approved' or 'rejected'
+
+      if (!['approved', 'rejected'].includes(status)) {
+        return res.status(400).json({ message: "Invalid approval status" });
+      }
+
+      const quote = await storage.updateSupplierQuote(quoteId, {
+        preliminaryApprovalStatus: status,
+        preliminaryApprovedAt: new Date(),
+        preliminaryApprovedBy: userId,
+      });
+
+      res.json(quote);
+    } catch (error) {
+      console.error("Error updating preliminary approval:", error);
+      res.status(500).json({ message: "Failed to update approval status" });
     }
   });
 

@@ -17,6 +17,7 @@ import QuoteRequests from "@/pages/quote-requests";
 import CreateQuoteRequest from "@/pages/create-quote-request";
 import QuoteRequestDetail from "@/pages/quote-request-detail";
 import QuoteSubmission from "@/pages/quote-submission";
+import SupplierQuoteDetail from "@/pages/supplier-quote-detail";
 
 function PublicRouter() {
   return (
@@ -29,6 +30,7 @@ function PublicRouter() {
 function AuthenticatedRouter() {
   const { user } = useAuth();
   const isAdmin = user?.role === 'admin' || user?.role === 'procurement';
+  const isSupplier = user?.role === 'supplier';
 
   return (
     <Switch>
@@ -38,6 +40,9 @@ function AuthenticatedRouter() {
       {isAdmin && <Route path="/quote-requests/create" component={CreateQuoteRequest} />}
       {isAdmin && <Route path="/quote-requests/:id" component={QuoteRequestDetail} />}
       {isAdmin && <Route path="/users" component={UserManagement} />}
+      {/* Supplier routes */}
+      <Route path="/supplier/dashboard" component={SupplierDashboard} />
+      <Route path="/supplier/quote-requests/:requestId" component={SupplierQuoteDetail} />
       <Route component={NotFound} />
     </Switch>
   );
