@@ -435,22 +435,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post('/api/quote-requests', isAuthenticated, async (req: any, res) => {
     try {
       const userId = getUserId(req);
-      console.log('[DEBUG POST /api/quote-requests] userId:', userId, 'req.user:', JSON.stringify(req.user));
       if (!userId) {
         return res.status(401).json({ message: "Unauthorized" });
       }
 
       const currentUser = await storage.getUser(userId);
-      console.log('[DEBUG POST /api/quote-requests] currentUser:', JSON.stringify(currentUser));
-      
-      if (!currentUser) {
-        console.log('[DEBUG POST /api/quote-requests] User not found in database! Checking all users...');
-        const allUsers = await storage.getAllUsers();
-        console.log('[DEBUG POST /api/quote-requests] All users in DB:', allUsers.map(u => ({ id: u.id, email: u.email, role: u.role })));
-      }
-      
       if (currentUser?.role !== 'admin' && currentUser?.role !== 'procurement') {
-        console.log('[DEBUG POST /api/quote-requests] Access denied - role:', currentUser?.role);
         return res.status(403).json({ message: "Forbidden: Admin or procurement access required" });
       }
 
