@@ -24,6 +24,19 @@ export const categoryEnum = pgEnum('category', ['natural', 'synthetic', 'natural
 export const formEnum = pgEnum('form', ['liquid', 'powder', 'paste']);
 export const quoteRequestStatusEnum = pgEnum('quote_request_status', ['draft', 'active', 'closed', 'cancelled']);
 export const quoteStatusEnum = pgEnum('quote_status', ['submitted', 'accepted', 'rejected']);
+export const preliminaryApprovalStatusEnum = pgEnum('preliminary_approval_status', ['pending', 'approved', 'rejected']);
+export const documentTypeEnum = pgEnum('document_type', [
+  'coa',
+  'pif',
+  'specification',
+  'sds',
+  'halal',
+  'kosher',
+  'natural_status',
+  'process_flow',
+  'gfsi_cert',
+  'organic'
+]);
 
 // ============================================================================
 // TABLE DEFINITIONS
@@ -129,11 +142,41 @@ export const supplierQuotes = pgTable("supplier_quotes", {
   paymentTerms: text("payment_terms"),
   additionalNotes: text("additional_notes"),
   attachments: jsonb("attachments").$type<string[]>().default([]),
+  
+  // New fields for Module 9
+  packSize: text("pack_size"),
+  shippingTerms: text("shipping_terms"),
+  freightCost: numeric("freight_cost", { precision: 10, scale: 2 }),
+  shelfLife: text("shelf_life"),
+  storageRequirements: text("storage_requirements"),
+  dangerousGoodsHandling: text("dangerous_goods_handling"),
+  
+  // Preliminary approval workflow
+  preliminaryApprovalStatus: preliminaryApprovalStatusEnum("preliminary_approval_status").notNull().default('pending'),
+  preliminaryApprovedAt: timestamp("preliminary_approved_at"),
+  preliminaryApprovedBy: varchar("preliminary_approved_by").references(() => users.id),
+  
   submittedAt: timestamp("submitted_at").defaultNow().notNull(),
   status: quoteStatusEnum("status").notNull().default('submitted'),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
+
+// Supplier documents table (for post-preliminary approval document uploads)
+export const supplierDocuments = pgTable("supplier_documents", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  supplierQuoteId: uuid("supplier_quote_id").notNull().references(() => supplierQuotes.id, { onDelete: 'cascade' }),
+  documentType: documentTypeEnum("document_type").notNull(),
+  fileUrl: text("file_url").notNull(),
+  fileName: varchar("file_name", { length: 255 }).notNull(),
+  fileSize: numeric("file_size").notNull(),
+  mimeType: varchar("mime_type", { length: 100 }),
+  uploadedBy: varchar("uploaded_by").notNull().references(() => users.id),
+  uploadedAt: timestamp("uploaded_at").defaultNow().notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_supplier_documents_quote_id").on(table.supplierQuoteId),
+]);
 
 // ============================================================================
 // RELATIONS
@@ -173,7 +216,7 @@ export const requestSuppliersRelations = relations(requestSuppliers, ({ one }) =
   }),
 }));
 
-export const supplierQuotesRelations = relations(supplierQuotes, ({ one }) => ({
+export const supplierQuotesRelations = relations(supplierQuotes, ({ one, many }) => ({
   request: one(quoteRequests, {
     fields: [supplierQuotes.requestId],
     references: [quoteRequests.id],
@@ -181,6 +224,18 @@ export const supplierQuotesRelations = relations(supplierQuotes, ({ one }) => ({
   supplier: one(suppliers, {
     fields: [supplierQuotes.supplierId],
     references: [suppliers.id],
+  }),
+  documents: many(supplierDocuments),
+}));
+
+export const supplierDocumentsRelations = relations(supplierDocuments, ({ one }) => ({
+  supplierQuote: one(supplierQuotes, {
+    fields: [supplierDocuments.supplierQuoteId],
+    references: [supplierQuotes.id],
+  }),
+  uploader: one(users, {
+    fields: [supplierDocuments.uploadedBy],
+    references: [users.id],
   }),
 }));
 
@@ -202,6 +257,9 @@ export type RequestSupplier = typeof requestSuppliers.$inferSelect;
 
 export type InsertSupplierQuote = typeof supplierQuotes.$inferInsert;
 export type SupplierQuote = typeof supplierQuotes.$inferSelect;
+
+export type InsertSupplierDocument = typeof supplierDocuments.$inferInsert;
+export type SupplierDocument = typeof supplierDocuments.$inferSelect;
 
 // ============================================================================
 // VALIDATION SCHEMAS
@@ -234,9 +292,28 @@ export const insertQuoteRequestSchema = createInsertSchema(quoteRequests, {
 
 export const insertSupplierQuoteSchema = createInsertSchema(supplierQuotes, {
   pricePerUnit: z.string().min(1, "Price is required"),
+  packSize: z.string().optional(),
+  shippingTerms: z.string().optional(),
+  freightCost: z.string().optional(),
+  shelfLife: z.string().optional(),
+  storageRequirements: z.string().optional(),
+  dangerousGoodsHandling: z.string().optional(),
 }).omit({
   id: true,
   submittedAt: true,
+  preliminaryApprovalStatus: true,
+  preliminaryApprovedAt: true,
+  preliminaryApprovedBy: true,
   createdAt: true,
   updatedAt: true,
+});
+
+export const insertSupplierDocumentSchema = createInsertSchema(supplierDocuments, {
+  fileName: z.string().min(1, "File name is required"),
+  fileSize: z.string().min(1, "File size is required"),
+}).omit({
+  id: true,
+  uploadedBy: true,
+  uploadedAt: true,
+  createdAt: true,
 });
