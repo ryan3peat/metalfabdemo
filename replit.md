@@ -49,13 +49,16 @@ The portal adheres to Material Design principles, utilizing the Roboto font fami
 #### Module 7: Quote Comparison & Review (Completed)
 -   **Quote Request Detail Page:** Comprehensive detail page at `/quote-requests/:id` displaying:
     -   Summary cards showing: quotes received count (X/Y format), submit-by date, and best quote price
-    -   Material details section with all specifications
-    -   Supplier comparison table with columns: Supplier, Price per Unit, Lead Time, MOQ, Payment Terms, Status, Actions
-    -   Status badges: "Submitted" (green) for completed quotes, "Pending" (yellow) for awaiting quotes
+    -   Material details section compressed to 1 row with 4 columns: Material Name, Quantity, CAS Number, FEMA Number
+    -   Supplier Quotes Comparison: 3-column card layout displaying top 3 quotes ordered by best price (lowest to highest)
+    -   Each supplier card shows: Price per Unit (prominent), MOQ, Lead Time, Payment Terms, and "Select Quote" button
+    -   Best price quote highlighted with primary border, background tint, and "Best Price" badge
 -   **Enhanced API Endpoint:** Modified `GET /api/quote-requests/:id` to return joined data from `quote_requests`, `request_suppliers`, and `supplier_quotes` tables with complete quote information
 -   **Quotes Received Column:** Added to Quote Requests list table showing "X / Y" format (quotes received / total suppliers) with green badge indicator when quotes are received
 -   **Backend Optimization:** Implemented Set-based deduplication in `getQuoteRequests()` to accurately count unique suppliers and submitted quotes per request
--   **Critical Bug Fix:** Resolved foreign key constraint violation in `upsertUser()` method that occurred during OIDC login. Fix excludes the `id` field from update operations to prevent attempts to modify primary keys referenced by other tables.
+-   **Critical Bug Fixes:** 
+    -   Resolved foreign key constraint violation in `upsertUser()` method that occurred during OIDC login. Fix excludes the `id` field from update operations to prevent attempts to modify primary keys referenced by other tables.
+    -   Fixed Create Supplier button by adding `createdBy` to `insertSupplierSchema` omit block, allowing frontend validation to pass without providing server-populated fields.
 
 ### System Design Choices
 -   **Modular Development:** The project is built in modular phases, ensuring each feature set is complete and testable.

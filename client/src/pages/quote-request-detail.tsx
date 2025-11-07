@@ -3,15 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import { ArrowLeft, Building2, Calendar, Package, CheckCircle, DollarSign } from "lucide-react";
+import { ArrowLeft, CheckCircle, Calendar, DollarSign, TrendingDown } from "lucide-react";
 import { format } from "date-fns";
 
 interface QuoteRequestDetails {
@@ -76,7 +68,6 @@ export default function QuoteRequestDetail() {
       <div className="p-6">
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-12">
-            <Package className="h-12 w-12 text-muted-foreground/50 mb-4" />
             <h3 className="text-lg font-medium text-foreground mb-2">Quote Request Not Found</h3>
             <p className="text-sm text-muted-foreground mb-6">
               The quote request you're looking for doesn't exist or you don't have permission to view it.
@@ -105,6 +96,11 @@ export default function QuoteRequestDetail() {
           return price < min ? price : min;
         }, Infinity)
     : null;
+
+  const sortedQuotes = suppliers
+    .filter(s => s.quote !== null)
+    .sort((a, b) => parseFloat(a.quote!.pricePerUnit) - parseFloat(b.quote!.pricePerUnit))
+    .slice(0, 3);
 
   return (
     <div className="p-6 space-y-6">
@@ -188,8 +184,8 @@ export default function QuoteRequestDetail() {
           <CardTitle>Material Details</CardTitle>
           <CardDescription>Quote request specifications</CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid gap-4 md:grid-cols-2">
+        <CardContent>
+          <div className="grid gap-4 md:grid-cols-4">
             <div>
               <p className="text-sm font-medium text-muted-foreground">Material Name</p>
               <p className="text-base font-medium" data-testid="text-material-name">
@@ -202,21 +198,17 @@ export default function QuoteRequestDetail() {
                 {request.quantityNeeded} {request.unitOfMeasure}
               </p>
             </div>
-            {request.casNumber && (
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">CAS Number</p>
-                <p className="text-base font-medium">{request.casNumber}</p>
-              </div>
-            )}
-            {request.femaNumber && (
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">FEMA Number</p>
-                <p className="text-base font-medium">{request.femaNumber}</p>
-              </div>
-            )}
+            <div>
+              <p className="text-sm font-medium text-muted-foreground">CAS Number</p>
+              <p className="text-base font-medium">{request.casNumber || "—"}</p>
+            </div>
+            <div>
+              <p className="text-sm font-medium text-muted-foreground">FEMA Number</p>
+              <p className="text-base font-medium">{request.femaNumber || "—"}</p>
+            </div>
           </div>
           {request.additionalSpecifications && (
-            <div>
+            <div className="mt-4">
               <p className="text-sm font-medium text-muted-foreground">Additional Specifications</p>
               <p className="text-base">{request.additionalSpecifications}</p>
             </div>
@@ -226,106 +218,96 @@ export default function QuoteRequestDetail() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Supplier Quotes Comparison</CardTitle>
-          <CardDescription>
-            Compare quotes from {totalSuppliers} invited supplier{totalSuppliers !== 1 ? 's' : ''}
-          </CardDescription>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle>Supplier Quotes Comparison</CardTitle>
+              <CardDescription>
+                Top {sortedQuotes.length} quote{sortedQuotes.length !== 1 ? 's' : ''} ordered by best price
+              </CardDescription>
+            </div>
+            {sortedQuotes.length > 0 && (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <TrendingDown className="h-4 w-4" />
+                <span>Best to highest</span>
+              </div>
+            )}
+          </div>
         </CardHeader>
         <CardContent>
-          <div className="border border-border rounded-md">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Supplier</TableHead>
-                  <TableHead>Price per Unit</TableHead>
-                  <TableHead>Lead Time</TableHead>
-                  <TableHead>MOQ</TableHead>
-                  <TableHead>Payment Terms</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {suppliers.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
-                      No suppliers invited for this quote request
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  suppliers.map((supplier) => (
-                    <TableRow 
-                      key={supplier.id}
-                      data-testid={`row-supplier-${supplier.id}`}
+          {sortedQuotes.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-12 text-center">
+              <CheckCircle className="h-12 w-12 text-muted-foreground/50 mb-4" />
+              <h3 className="text-lg font-medium text-foreground mb-2">No Quotes Yet</h3>
+              <p className="text-sm text-muted-foreground max-w-md">
+                Waiting for suppliers to submit their quotes. You'll see the top 3 quotes here once received.
+              </p>
+            </div>
+          ) : (
+            <div className="grid gap-6 md:grid-cols-3">
+              {sortedQuotes.map((supplier, index) => (
+                <Card 
+                  key={supplier.id}
+                  className={index === 0 ? "border-primary/50 bg-primary/5" : ""}
+                  data-testid={`card-supplier-${index + 1}`}
+                >
+                  <CardHeader className="pb-3">
+                    <div className="flex items-center justify-between gap-1">
+                      <CardTitle className="text-base">
+                        Supplier #{index + 1}
+                      </CardTitle>
+                      {index === 0 && (
+                        <Badge 
+                          variant="outline" 
+                          className="bg-primary/10 text-primary border-primary/20 text-xs"
+                          data-testid="badge-best-price"
+                        >
+                          Best Price
+                        </Badge>
+                      )}
+                    </div>
+                    <CardDescription className="font-medium text-foreground">
+                      {supplier.supplierName}
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div>
+                      <p className="text-xs font-medium text-muted-foreground mb-1">Price per Unit</p>
+                      <p className="text-2xl font-bold text-foreground" data-testid={`text-price-${index + 1}`}>
+                        {supplier.quote!.currency} {parseFloat(supplier.quote!.pricePerUnit).toFixed(2)}
+                      </p>
+                    </div>
+                    <div className="space-y-3">
+                      <div>
+                        <p className="text-xs font-medium text-muted-foreground mb-1">MOQ</p>
+                        <p className="text-sm font-medium text-foreground" data-testid={`text-moq-${index + 1}`}>
+                          {supplier.quote!.moq || "—"}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-xs font-medium text-muted-foreground mb-1">Lead Time</p>
+                        <p className="text-sm font-medium text-foreground" data-testid={`text-lead-time-${index + 1}`}>
+                          {supplier.quote!.leadTime}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-xs font-medium text-muted-foreground mb-1">Payment Terms</p>
+                        <p className="text-sm font-medium text-foreground" data-testid={`text-payment-terms-${index + 1}`}>
+                          {supplier.quote!.paymentTerms || "—"}
+                        </p>
+                      </div>
+                    </div>
+                    <Button 
+                      variant={index === 0 ? "default" : "outline"} 
+                      className="w-full"
+                      data-testid={`button-select-${index + 1}`}
                     >
-                      <TableCell>
-                        <div>
-                          <p className="font-medium text-sm" data-testid={`text-supplier-${supplier.id}`}>
-                            {supplier.supplierName}
-                          </p>
-                          <p className="text-xs text-muted-foreground">{supplier.email}</p>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        {supplier.quote ? (
-                          <div className="font-medium">
-                            {supplier.quote.currency} {parseFloat(supplier.quote.pricePerUnit).toFixed(2)}
-                          </div>
-                        ) : (
-                          <span className="text-muted-foreground">—</span>
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        {supplier.quote ? supplier.quote.leadTime : (
-                          <span className="text-muted-foreground">—</span>
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        {supplier.quote?.moq || (
-                          <span className="text-muted-foreground">—</span>
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        {supplier.quote?.paymentTerms || (
-                          <span className="text-muted-foreground">—</span>
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        {supplier.quote ? (
-                          <Badge 
-                            variant="outline" 
-                            className="bg-green-500/10 text-green-500 border-green-500/20"
-                            data-testid={`badge-submitted-${supplier.id}`}
-                          >
-                            Submitted
-                          </Badge>
-                        ) : (
-                          <Badge 
-                            variant="outline" 
-                            className="bg-yellow-500/10 text-yellow-500 border-yellow-500/20"
-                            data-testid={`badge-pending-${supplier.id}`}
-                          >
-                            Pending
-                          </Badge>
-                        )}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        {supplier.quote && (
-                          <Button 
-                            variant="ghost" 
-                            size="sm"
-                            data-testid={`button-select-${supplier.id}`}
-                          >
-                            Select
-                          </Button>
-                        )}
-                      </TableCell>
-                    </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          </div>
+                      Select Quote
+                    </Button>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>
