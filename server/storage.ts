@@ -4,6 +4,7 @@ import {
   quoteRequests,
   requestSuppliers,
   supplierQuotes,
+  supplierDocuments,
   type User,
   type UpsertUser,
   type Supplier,
@@ -14,6 +15,8 @@ import {
   type InsertRequestSupplier,
   type SupplierQuote,
   type InsertSupplierQuote,
+  type SupplierDocument,
+  type InsertSupplierDocument,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, sql, desc } from "drizzle-orm";
@@ -31,6 +34,7 @@ export interface IStorage {
   // Supplier operations
   getSuppliers(): Promise<Supplier[]>;
   getSupplier(id: string): Promise<Supplier | undefined>;
+  getSupplierByEmail(email: string): Promise<Supplier | undefined>;
   createSupplier(supplier: InsertSupplier): Promise<Supplier>;
   updateSupplier(id: string, supplier: Partial<InsertSupplier>): Promise<Supplier | undefined>;
   deleteSupplier(id: string): Promise<void>;
@@ -48,7 +52,21 @@ export interface IStorage {
   
   // Supplier quote operations
   getSupplierQuotes(requestId: string): Promise<SupplierQuote[]>;
+  getSupplierQuote(quoteId: string): Promise<SupplierQuote | undefined>;
   createSupplierQuote(quote: InsertSupplierQuote): Promise<SupplierQuote>;
+  updateSupplierQuote(id: string, quote: Partial<InsertSupplierQuote>): Promise<SupplierQuote | undefined>;
+  
+  // Supplier portal operations
+  getSupplierQuoteRequests(supplierId: string): Promise<Array<{
+    request: QuoteRequest;
+    requestSupplier: RequestSupplier;
+    quote: SupplierQuote | null;
+  }>>;
+  
+  // Document operations
+  getSupplierDocuments(quoteId: string): Promise<SupplierDocument[]>;
+  createSupplierDocument(document: InsertSupplierDocument): Promise<SupplierDocument>;
+  deleteSupplierDocument(id: string): Promise<void>;
   
   // Quote request details with all related data
   getQuoteRequestDetails(requestId: string): Promise<{
@@ -157,6 +175,15 @@ export class DatabaseStorage implements IStorage {
 
   async getSupplier(id: string): Promise<Supplier | undefined> {
     const [supplier] = await db.select().from(suppliers).where(eq(suppliers.id, id));
+    return supplier;
+  }
+
+  async getSupplierByEmail(email: string): Promise<Supplier | undefined> {
+    const [supplier] = await db
+      .select()
+      .from(suppliers)
+      .where(sql`${suppliers.email} = ${email} OR ${suppliers.email2} = ${email}`)
+      .limit(1);
     return supplier;
   }
 
@@ -271,9 +298,83 @@ export class DatabaseStorage implements IStorage {
     return await db.select().from(supplierQuotes).where(eq(supplierQuotes.requestId, requestId));
   }
 
+  async getSupplierQuote(quoteId: string): Promise<SupplierQuote | undefined> {
+    const [quote] = await db.select().from(supplierQuotes).where(eq(supplierQuotes.id, quoteId));
+    return quote;
+  }
+
   async createSupplierQuote(quoteData: InsertSupplierQuote): Promise<SupplierQuote> {
     const [quote] = await db.insert(supplierQuotes).values(quoteData).returning();
     return quote;
+  }
+
+  async updateSupplierQuote(id: string, quoteData: Partial<InsertSupplierQuote>): Promise<SupplierQuote | undefined> {
+    const [quote] = await db
+      .update(supplierQuotes)
+      .set({ ...quoteData, updatedAt: new Date() })
+      .where(eq(supplierQuotes.id, id))
+      .returning();
+    return quote;
+  }
+
+  // Supplier portal operations
+  async getSupplierQuoteRequests(supplierId: string): Promise<Array<{
+    request: QuoteRequest;
+    requestSupplier: RequestSupplier;
+    quote: SupplierQuote | null;
+  }>> {
+    // Get all request_suppliers entries for this supplier
+    const requestSuppliersData = await db
+      .select()
+      .from(requestSuppliers)
+      .where(eq(requestSuppliers.supplierId, supplierId))
+      .orderBy(desc(requestSuppliers.createdAt));
+
+    // Get all requests and quotes in parallel
+    const results = await Promise.all(
+      requestSuppliersData.map(async (rs) => {
+        const [request] = await db
+          .select()
+          .from(quoteRequests)
+          .where(eq(quoteRequests.id, rs.requestId));
+        
+        const [quote] = await db
+          .select()
+          .from(supplierQuotes)
+          .where(
+            and(
+              eq(supplierQuotes.requestId, rs.requestId),
+              eq(supplierQuotes.supplierId, supplierId)
+            )
+          );
+
+        return {
+          request,
+          requestSupplier: rs,
+          quote: quote || null,
+        };
+      })
+    );
+
+    return results.filter(r => r.request !== undefined);
+  }
+
+  // Document operations
+  async getSupplierDocuments(quoteId: string): Promise<SupplierDocument[]> {
+    return await db
+      .select()
+      .from(supplierDocuments)
+      .where(eq(supplierDocuments.supplierQuoteId, quoteId))
+      .orderBy(desc(supplierDocuments.uploadedAt));
+  }
+
+  async createSupplierDocument(documentData: InsertSupplierDocument): Promise<SupplierDocument> {
+    const [document] = await db.insert(supplierDocuments).values(documentData).returning();
+    return document;
+  }
+
+  async deleteSupplierDocument(id: string): Promise<void> {
+    await db.delete(supplierDocuments).where(eq(supplierDocuments.id, id));
   }
 
   async getQuoteRequestDetails(requestId: string): Promise<{
