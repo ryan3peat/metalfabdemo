@@ -145,36 +145,86 @@ export default function QuoteSubmission() {
   if (isSubmitted) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center p-4">
-        <Card className="max-w-2xl w-full">
-          <CardHeader>
-            <div className="flex items-center gap-3 text-green-600 dark:text-green-400">
-              <CheckCircle2 className="h-8 w-8" />
-              <div>
-                <CardTitle className="text-2xl">Quote Submitted Successfully</CardTitle>
-                <CardDescription className="mt-2">
-                  Thank you for submitting your quote for {request.requestNumber}
-                </CardDescription>
+        <div className="max-w-2xl w-full space-y-6">
+          <Card>
+            <CardHeader>
+              <div className="flex items-center gap-3 text-green-600 dark:text-green-400">
+                <CheckCircle2 className="h-8 w-8" />
+                <div>
+                  <CardTitle className="text-2xl">Quote Submitted Successfully</CardTitle>
+                  <CardDescription className="mt-2">
+                    Thank you for submitting your quote for {request.requestNumber}
+                  </CardDescription>
+                </div>
               </div>
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <Alert>
-              <FileText className="h-4 w-4" />
-              <AlertDescription>
-                Your quote has been received and will be reviewed by the Essential Flavours procurement team.
-                You will be contacted if your quote is selected.
-              </AlertDescription>
-            </Alert>
-            <div className="pt-4 border-t border-border">
-              <p className="text-sm text-muted-foreground">
-                Material: <span className="font-medium text-foreground">{request.materialName}</span>
-              </p>
-              <p className="text-sm text-muted-foreground mt-1">
-                Quantity: <span className="font-medium text-foreground">{request.quantityNeeded} {request.unitOfMeasure}</span>
-              </p>
-            </div>
-          </CardContent>
-        </Card>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <Alert>
+                <FileText className="h-4 w-4" />
+                <AlertDescription>
+                  Your quote has been received and will be reviewed by the Essential Flavours procurement team.
+                  You will be contacted if your quote is selected.
+                </AlertDescription>
+              </Alert>
+              <div className="pt-4 border-t border-border">
+                <p className="text-sm text-muted-foreground">
+                  Material: <span className="font-medium text-foreground">{request.materialName}</span>
+                </p>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Quantity: <span className="font-medium text-foreground">{request.quantityNeeded} {request.unitOfMeasure}</span>
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Portal Account Prompt */}
+          <Card className="border-primary">
+            <CardHeader>
+              <CardTitle className="text-xl">Want to Track All Your Quote Requests?</CardTitle>
+              <CardDescription>
+                Create a supplier account to access your personalized dashboard
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-3">
+                <div className="flex items-start gap-3">
+                  <CheckCircle2 className="h-5 w-5 text-primary mt-0.5" />
+                  <div>
+                    <p className="font-medium text-foreground">View all your quote requests in one place</p>
+                    <p className="text-sm text-muted-foreground">Track ongoing, submitted, and approved quotes</p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-3">
+                  <CheckCircle2 className="h-5 w-5 text-primary mt-0.5" />
+                  <div>
+                    <p className="font-medium text-foreground">Manage quotes anytime, anywhere</p>
+                    <p className="text-sm text-muted-foreground">Update your quotes and upload required documents</p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-3">
+                  <CheckCircle2 className="h-5 w-5 text-primary mt-0.5" />
+                  <div>
+                    <p className="font-medium text-foreground">Get real-time status updates</p>
+                    <p className="text-sm text-muted-foreground">See when your quotes are reviewed and approved</p>
+                  </div>
+                </div>
+              </div>
+              <div className="pt-4 border-t border-border">
+                <Button 
+                  className="w-full" 
+                  size="lg"
+                  onClick={() => window.location.href = "/"}
+                  data-testid="button-login-portal"
+                >
+                  Login to Supplier Portal
+                </Button>
+                <p className="text-xs text-center text-muted-foreground mt-3">
+                  Click "Login with Replit" on the next page to create your account
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
       </div>
     );
   }
