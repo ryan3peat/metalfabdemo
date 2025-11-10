@@ -18,11 +18,13 @@ import CreateQuoteRequest from "@/pages/create-quote-request";
 import QuoteRequestDetail from "@/pages/quote-request-detail";
 import QuoteSubmission from "@/pages/quote-submission";
 import SupplierQuoteDetail from "@/pages/supplier-quote-detail";
+import VerifyLogin from "@/pages/verify-login";
 
 function PublicRouter() {
   return (
     <Switch>
       <Route path="/quote-submission/:id" component={QuoteSubmission} />
+      <Route path="/verify-login" component={VerifyLogin} />
     </Switch>
   );
 }
@@ -64,7 +66,7 @@ function Router() {
   }
 
   // Public routes that don't require authentication
-  if (location.startsWith('/quote-submission/')) {
+  if (location.startsWith('/quote-submission/') || location.startsWith('/verify-login')) {
     return <PublicRouter />;
   }
 

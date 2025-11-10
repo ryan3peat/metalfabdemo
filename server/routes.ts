@@ -9,6 +9,7 @@ import { generateAccessToken, generateQuoteSubmissionUrl } from "./email/emailSe
 import { emailService } from "./email/hybridEmailService";
 import { validateQuoteAccessToken } from "./middleware/tokenAuth";
 import { requireSupplierAccess } from "./middleware/supplierAuth";
+import authRoutes from "./routes/authRoutes";
 
 // Helper function to get user ID from either OIDC or local auth
 function getUserId(req: any): string | undefined {
@@ -23,6 +24,9 @@ function getUserId(req: any): string | undefined {
 export async function registerRoutes(app: Express): Promise<Server> {
   // Auth middleware
   await setupAuth(app);
+
+  // Magic link authentication routes
+  app.use('/api/auth', authRoutes);
 
   // Local authentication routes
   app.post('/api/local/login', (req, res, next) => {

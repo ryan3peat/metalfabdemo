@@ -12,9 +12,11 @@ import {
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AlertCircle, Info } from "lucide-react";
 import { AdminLoginForm } from "@/components/admin-login-form";
+import { SupplierLoginForm } from "@/components/supplier-login-form";
 
 export default function Landing() {
   const [showAdminDialog, setShowAdminDialog] = useState(false);
+  const [showSupplierDialog, setShowSupplierDialog] = useState(false);
   const [accessDeniedError, setAccessDeniedError] = useState<string | null>(null);
   
   // Only check auth status once on mount to detect access denied errors
@@ -90,21 +92,31 @@ export default function Landing() {
             <Info className="h-4 w-4 text-blue-600 dark:text-blue-400" />
             <AlertDescription className="text-blue-900 dark:text-blue-100">
               <strong>For Suppliers:</strong> You must be registered in our supplier directory to access this portal. 
-              If you've received a quote request email from us, you can use the link in that email to submit your quote without logging in.
+              We'll send you a secure login link via email - no password needed!
             </AlertDescription>
           </Alert>
 
           <div className="flex justify-center pt-8">
-            <Button 
-              size="lg" 
-              asChild 
-              data-testid="button-supplier-login"
-              className="text-lg px-12 py-6 h-auto"
-            >
-              <a href="/api/login">
-                Supplier Login
-              </a>
-            </Button>
+            <Dialog open={showSupplierDialog} onOpenChange={setShowSupplierDialog}>
+              <DialogTrigger asChild>
+                <Button 
+                  size="lg" 
+                  data-testid="button-supplier-login"
+                  className="text-lg px-12 py-6 h-auto"
+                >
+                  Supplier Login
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-md">
+                <DialogHeader>
+                  <DialogTitle>Supplier Login</DialogTitle>
+                  <DialogDescription>
+                    Enter your email to receive a secure login link
+                  </DialogDescription>
+                </DialogHeader>
+                <SupplierLoginForm />
+              </DialogContent>
+            </Dialog>
           </div>
 
           <div className="text-center text-sm text-muted-foreground border-t border-border pt-8 mt-16">
