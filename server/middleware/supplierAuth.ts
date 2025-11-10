@@ -1,20 +1,24 @@
 import type { Request, Response, NextFunction } from "express";
 import { storage } from "../storage";
 
-// Helper function to get user ID from either OIDC or local auth
+// Helper function to get user ID from either OIDC, local auth, or supplier magic link
 function getUserId(req: any): string | undefined {
   if (req.user?.authType === "local") {
     return req.user.localAuthUser?.id;
+  } else if (req.user?.authType === "supplier") {
+    return req.user.supplierUser?.id;
   } else if (req.user?.claims) {
     return req.user.claims.sub;
   }
   return undefined;
 }
 
-// Helper function to get user email from either OIDC or local auth
+// Helper function to get user email from either OIDC, local auth, or supplier magic link
 function getUserEmail(req: any): string | undefined {
   if (req.user?.authType === "local") {
     return req.user.localAuthUser?.email;
+  } else if (req.user?.authType === "supplier") {
+    return req.user.supplierUser?.email;
   } else if (req.user?.claims) {
     return req.user.claims.email;
   }
