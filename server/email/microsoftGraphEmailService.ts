@@ -3,6 +3,7 @@ import { Client } from '@microsoft/microsoft-graph-client';
 import { TokenCredentialAuthenticationProvider } from '@microsoft/microsoft-graph-client/authProviders/azureTokenCredentials/index.js';
 import 'isomorphic-fetch';
 import type { EmailRecipient, RFQEmailData } from './emailService';
+import { getBaseUrl } from '../utils/baseUrl';
 
 function createRFQEmailTemplate(data: RFQEmailData, supplierName: string): string {
   const submitByFormatted = data.submitByDate.toLocaleDateString('en-AU', {
@@ -97,7 +98,7 @@ function createRFQEmailTemplate(data: RFQEmailData, supplierName: string): strin
       
       <div class="cta-section">
         <p style="margin-bottom: 16px; font-size: 15px;"><strong>Quick Submit:</strong> Click the button below to submit your quote:</p>
-        <a href="${data.quoteSubmissionUrl}" class="cta-button">Submit Quote</a>
+        <a href="${data.quoteSubmissionUrl}" class="cta-button" style="color: white !important;">Submit Quote</a>
       </div>
       
       <div style="background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px; padding: 20px; margin: 24px 0;">
@@ -105,7 +106,7 @@ function createRFQEmailTemplate(data: RFQEmailData, supplierName: string): strin
         <p style="margin: 0 0 16px; font-size: 14px; color: #1f2937;">
           Login to our supplier portal to view all your quote requests, track submission status, and manage your quotes in one place.
         </p>
-        <a href="${process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : 'http://localhost:5000'}" 
+        <a href="${getBaseUrl()}" 
            style="display: inline-block; background: white; color: #1e40af; text-decoration: none; padding: 10px 24px; border: 2px solid #1e40af; border-radius: 6px; font-weight: 600; font-size: 14px;">
           Login to Portal
         </a>
