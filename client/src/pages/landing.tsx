@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -11,19 +12,29 @@ import {
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AlertCircle, Info } from "lucide-react";
 import { AdminLoginForm } from "@/components/admin-login-form";
-import { useAuth } from "@/hooks/useAuth";
 
 export default function Landing() {
   const [showAdminDialog, setShowAdminDialog] = useState(false);
-  const { notRegisteredSupplier, errorMessage } = useAuth();
-  const [showAccessDenied, setShowAccessDenied] = useState(false);
+  const [accessDeniedError, setAccessDeniedError] = useState<string | null>(null);
+  
+  // Only check auth status once on mount to detect access denied errors
+  const { error } = useQuery({
+    queryKey: ["/api/auth/user"],
+    retry: false,
+    enabled: false, // Don't auto-fetch, we'll check manually
+    staleTime: 0,
+  });
 
-  // Show access denied alert when user is not a registered supplier
+  // Check for access denied error on mount (from login redirect)
   useEffect(() => {
-    if (notRegisteredSupplier) {
-      setShowAccessDenied(true);
+    const errorResponse = error as any;
+    if (errorResponse?.response?.status === 403) {
+      setAccessDeniedError(
+        errorResponse?.response?.data?.message || 
+        "Access denied. Only registered suppliers can access this portal."
+      );
     }
-  }, [notRegisteredSupplier]);
+  }, [error]);
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
@@ -68,12 +79,10 @@ export default function Landing() {
             </p>
           </div>
 
-          {showAccessDenied && (
+          {accessDeniedError && (
             <Alert variant="destructive" className="text-left" data-testid="alert-access-denied">
               <AlertCircle className="h-4 w-4" />
-              <AlertDescription>
-                {errorMessage || "Access denied. Only registered suppliers can access this portal."}
-              </AlertDescription>
+              <AlertDescription>{accessDeniedError}</AlertDescription>
             </Alert>
           )}
 
