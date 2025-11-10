@@ -22,7 +22,7 @@ The portal adheres to Material Design principles, utilizing the Roboto font fami
 ### Core Features
 -   **Database & Authentication:** Comprehensive schema, dual authentication (Replit Auth and local), role-based access control (Admin, Supplier, Procurement), and Admin User Management.
 -   **Simplified Landing Page:** Clean, professional login page with "Essential Flavours" title and "Supplier Quotation Portal" subtitle. Features separate login flows:
-    -   **Supplier Login:** Main centered button using Replit Auth (OIDC) - auto-provisions users with supplier role for restricted access to only their own quotes and requests
+    -   **Supplier Login:** Main centered button using Replit Auth (OIDC) - validates user email against supplier database before granting access. Only registered suppliers can access the portal. Shows informative error messages for unregistered users.
     -   **Admin Login:** Top-right button opening a dialog for local authentication - allowlisted emails only for full system access
 -   **Admin Dashboard:** Live statistics dashboard displaying Active Requests, Total Suppliers, Pending Quotes, and Average Response Time with efficient SQL aggregations. Includes Recent Quote Requests section with clickable links.
 -   **Supplier Management:** CRUD operations for suppliers, support for multiple email contacts, and CSV import functionality.
@@ -36,6 +36,7 @@ The portal adheres to Material Design principles, utilizing the Roboto font fami
 ### System Design Choices
 -   **Modular Development:** Project developed in modular phases for completeness and testability.
 -   **Role-Based Access Control (RBAC):** Granular permissions for Admin, Supplier, and Procurement roles.
+-   **Supplier Email Verification:** Only users with emails registered in the supplier database can access the portal via Replit Auth. Unregistered users receive clear error messages.
 -   **Token-Based Supplier Access:** Frictionless quote submission for suppliers via secure, expiring tokens.
 -   **Dual-Access Supplier Model:** Supports both token-based and authenticated portal access for suppliers.
 -   **Auto-generated RFQ Numbers:** Consistent `RFQ-YYYY-XXXXX` numbering.
