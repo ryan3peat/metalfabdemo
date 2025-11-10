@@ -133,7 +133,7 @@ export const requestSuppliers = pgTable("request_suppliers", {
 export const supplierQuotes = pgTable("supplier_quotes", {
   id: uuid("id").primaryKey().defaultRandom(),
   requestId: uuid("request_id").notNull().references(() => quoteRequests.id, { onDelete: 'cascade' }),
-  supplierId: uuid("supplier_id").notNull().references(() => suppliers.id),
+  supplierId: uuid("supplier_id").notNull().references(() => suppliers.id, { onDelete: 'cascade' }),
   pricePerUnit: numeric("price_per_unit", { precision: 10, scale: 2 }).notNull(),
   currency: varchar("currency", { length: 10 }).notNull().default('AUD'),
   moq: text("moq"),
