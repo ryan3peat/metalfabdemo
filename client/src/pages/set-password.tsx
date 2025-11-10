@@ -64,7 +64,7 @@ export default function SetPassword() {
     onSuccess: () => {
       setSuccessMessage('Password set successfully! Redirecting to login...');
       setTimeout(() => {
-        navigate('/login');
+        navigate('/');
       }, 2000);
     },
     onError: (error: Error) => {
