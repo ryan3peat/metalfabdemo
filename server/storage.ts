@@ -34,6 +34,7 @@ export interface IStorage {
   updateUserRole(id: string, role: 'admin' | 'supplier' | 'procurement'): Promise<User | undefined>;
   updateUserStatus(id: string, active: boolean): Promise<User | undefined>;
   setUserPassword(id: string, passwordHash: string): Promise<User | undefined>;
+  setPasswordAndConsumeToken(userId: string, passwordHash: string, tokenId: string): Promise<{ success: boolean; error?: string }>;
   deleteUser(id: string): Promise<void>;
   
   // Supplier operations
@@ -186,6 +187,72 @@ export class DatabaseStorage implements IStorage {
       .where(eq(users.id, id))
       .returning();
     return user;
+  }
+
+  /**
+   * Atomically sets a user's password and marks the magic link token as used.
+   * Uses SELECT FOR UPDATE to acquire a row-level lock, preventing race conditions.
+   * 
+   * @param userId - The user's ID
+   * @param passwordHash - The hashed password
+   * @param tokenId - The magic link token ID to mark as used
+   * @returns Success status and optional error message
+   */
+  async setPasswordAndConsumeToken(
+    userId: string, 
+    passwordHash: string, 
+    tokenId: string
+  ): Promise<{ success: boolean; error?: string }> {
+    try {
+      await db.transaction(async (tx) => {
+        // Acquire exclusive row-level lock on the token
+        // This prevents concurrent transactions from using the same token
+        const [token] = await tx
+          .select()
+          .from(magicLinks)
+          .where(eq(magicLinks.id, tokenId))
+          .for('update'); // Row-level lock - other transactions will wait
+
+        if (!token) {
+          throw new Error('Token not found');
+        }
+
+        // Check if token was already used (after acquiring lock)
+        if (token.usedAt) {
+          throw new Error('Token already used');
+        }
+
+        // Mark token as used
+        await tx
+          .update(magicLinks)
+          .set({ usedAt: new Date() })
+          .where(eq(magicLinks.id, tokenId));
+
+        // Set the password
+        const result = await tx
+          .update(users)
+          .set({ 
+            passwordHash, 
+            passwordSetAt: new Date(), 
+            updatedAt: new Date() 
+          })
+          .where(eq(users.id, userId));
+
+        // Verify user update succeeded
+        const userRowCount = result.rowCount ?? 0;
+        if (userRowCount === 0) {
+          throw new Error('User not found');
+        }
+      });
+
+      return { success: true };
+    } catch (error) {
+      console.error('Transaction error in setPasswordAndConsumeToken:', error);
+      return { 
+        success: false, 
+        error: error instanceof Error ? error.message : 'Unknown error' 
+      };
+    }
   }
 
   async createUser(userData: Omit<UpsertUser, 'id'>): Promise<User> {

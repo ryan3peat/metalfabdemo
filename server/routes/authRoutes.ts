@@ -247,21 +247,28 @@ router.post('/setup-password', ipRateLimiter, async (req: Request, res: Response
     // Hash password with bcrypt cost factor 12 (architect recommendation)
     const passwordHash = await bcrypt.hash(validationResult.data.password, 12);
 
-    // Transactionally set password and mark token as used
-    try {
-      await storage.setUserPassword(user.id, passwordHash);
-      await storage.markMagicLinkAsUsed(setupLink.id);
+    // Atomically set password and mark token as used (prevents race condition)
+    const result = await storage.setPasswordAndConsumeToken(user.id, passwordHash, setupLink.id);
 
-      return res.status(200).json({
-        success: true,
-        message: 'Password set successfully. You can now log in.',
-      });
-    } catch (error) {
-      console.error('Error setting password:', error);
+    if (!result.success) {
+      // Check if it was a "token already used" error (race condition caught)
+      if (result.error === 'Token already used') {
+        return res.status(400).json({
+          message: 'This password setup link has already been used',
+          expired: true,
+        });
+      }
+
+      console.error('Error setting password:', result.error);
       return res.status(500).json({
         message: 'Failed to set password. Please try again.',
       });
     }
+
+    return res.status(200).json({
+      success: true,
+      message: 'Password set successfully. You can now log in.',
+    });
   } catch (error) {
     console.error('Error in password setup:', error);
     return res.status(500).json({
