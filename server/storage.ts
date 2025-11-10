@@ -80,6 +80,14 @@ export interface IStorage {
     }>;
   } | undefined>;
   
+  // Dashboard statistics
+  getAdminDashboardStats(): Promise<{
+    activeRequests: number;
+    totalSuppliers: number;
+    pendingQuotes: number;
+    averageResponseTimeHours: number | null;
+  }>;
+  
   // Utility
   generateRfqNumber(): Promise<string>;
 }
@@ -422,6 +430,49 @@ export class DatabaseStorage implements IStorage {
     return {
       request,
       suppliers: suppliersWithQuotes,
+    };
+  }
+
+  // Dashboard statistics
+  async getAdminDashboardStats(): Promise<{
+    activeRequests: number;
+    totalSuppliers: number;
+    pendingQuotes: number;
+    averageResponseTimeHours: number | null;
+  }> {
+    // Count active quote requests
+    const [activeResult] = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(quoteRequests)
+      .where(eq(quoteRequests.status, 'active'));
+    
+    // Count total suppliers
+    const [suppliersResult] = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(suppliers);
+    
+    // Count pending quotes
+    const [pendingResult] = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(supplierQuotes)
+      .where(eq(supplierQuotes.preliminaryApprovalStatus, 'pending'));
+    
+    // Calculate average response time
+    const [avgResult] = await db
+      .select({
+        avgHours: sql<number | null>`
+          AVG(EXTRACT(EPOCH FROM (${supplierQuotes.submittedAt} - ${quoteRequests.createdAt})) / 3600)
+        `,
+      })
+      .from(supplierQuotes)
+      .innerJoin(quoteRequests, eq(supplierQuotes.requestId, quoteRequests.id))
+      .where(sql`${supplierQuotes.submittedAt} IS NOT NULL`);
+    
+    return {
+      activeRequests: Number(activeResult.count),
+      totalSuppliers: Number(suppliersResult.count),
+      pendingQuotes: Number(pendingResult.count),
+      averageResponseTimeHours: avgResult.avgHours !== null && avgResult.avgHours !== undefined ? Number(avgResult.avgHours) : null,
     };
   }
 

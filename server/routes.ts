@@ -589,6 +589,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Admin dashboard statistics
+  app.get('/api/admin/dashboard', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserId(req);
+      if (!userId) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const currentUser = await storage.getUser(userId);
+      
+      if (currentUser?.role !== 'admin' && currentUser?.role !== 'procurement') {
+        return res.status(403).json({ message: "Forbidden: Admin or procurement access required" });
+      }
+
+      const stats = await storage.getAdminDashboardStats();
+      res.json(stats);
+    } catch (error) {
+      console.error("Error fetching admin dashboard statistics:", error);
+      res.status(500).json({ message: "Failed to fetch dashboard statistics" });
+    }
+  });
+
   // ============================================================================
   // SUPPLIER PORTAL API ROUTES (Authenticated supplier access)
   // ============================================================================
