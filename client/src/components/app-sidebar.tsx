@@ -14,6 +14,8 @@ import { useAuth } from "@/hooks/useAuth";
 import { Link, useLocation } from "wouter";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
+import { useMutation } from "@tanstack/react-query";
+import { apiRequest } from "@/lib/queryClient";
 
 const adminMenuItems = [
   {
@@ -52,6 +54,19 @@ export function AppSidebar() {
   
   const isAdmin = user?.role === 'admin' || user?.role === 'procurement';
   const menuItems = isAdmin ? adminMenuItems : supplierMenuItems;
+
+  const logoutMutation = useMutation({
+    mutationFn: async () => {
+      return await apiRequest("/api/logout", "POST");
+    },
+    onSuccess: () => {
+      window.location.href = "/";
+    },
+  });
+
+  const handleLogout = () => {
+    logoutMutation.mutate();
+  };
 
   const getRoleBadgeColor = (role: string) => {
     switch (role) {
@@ -143,14 +158,14 @@ export function AppSidebar() {
             </Badge>
           )}
 
-          <a 
-            href="/api/logout"
+          <button
+            onClick={handleLogout}
             className="flex items-center gap-2 w-full px-3 py-2 text-sm text-muted-foreground hover:text-foreground hover:bg-accent rounded-md transition-colors"
             data-testid="button-logout"
           >
             <LogOut className="h-4 w-4" />
             <span>Log Out</span>
-          </a>
+          </button>
         </div>
       </SidebarFooter>
     </Sidebar>

@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { setupAuth, isAuthenticated } from "./replitAuth";
+import { setupAuth, isAuthenticated } from "./auth";
 import localPassport from "./auth/localAuth";
 import { hashPassword, validatePasswordComplexity } from "./auth/localAuth";
 import { insertUserSchema, insertSupplierSchema, insertSupplierQuoteSchema } from "@shared/schema";
@@ -11,12 +11,12 @@ import { validateQuoteAccessToken } from "./middleware/tokenAuth";
 import { requireSupplierAccess } from "./middleware/supplierAuth";
 import authRoutes from "./routes/authRoutes";
 
-// Helper function to get user ID from either OIDC or local auth
+// Helper function to get user ID from local auth or supplier sessions
 function getUserId(req: any): string | undefined {
   if (req.user?.authType === "local") {
     return req.user.localAuthUser?.id;
-  } else if (req.user?.claims) {
-    return req.user.claims.sub;
+  } else if (req.user?.authType === "supplier") {
+    return req.user.supplierUser?.id;
   }
   return undefined;
 }
@@ -47,16 +47,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.json({ message: "Login successful" });
       });
     })(req, res, next);
-  });
-
-  app.post('/api/local/logout', (req, res) => {
-    req.logout((err) => {
-      if (err) {
-        console.error('[LocalAuth] Logout error:', err);
-        return res.status(500).json({ message: "Failed to logout" });
-      }
-      res.json({ message: "Logout successful" });
-    });
   });
 
   // Set password route (admin only - for initial setup)
@@ -108,41 +98,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ message: "Unauthorized" });
       }
       
-      let user = await storage.getUser(userId);
+      const user = await storage.getUser(userId);
       
-      // For OIDC users logging in for the first time, create user record
-      if (!user && req.user?.claims) {
-        const claims = req.user.claims;
-        
-        // Check if the user's email exists in the suppliers database
-        const supplier = await storage.getSupplierByEmail(claims.email);
-        
-        if (!supplier) {
-          // User is not a registered supplier - deny access
-          console.log(`[Auth] Access denied for ${claims.email} - not a registered supplier`);
-          return res.status(403).json({ 
-            message: "Access denied. Only registered suppliers can access this portal. Please contact Essential Flavours if you believe this is an error.",
-            code: "NOT_REGISTERED_SUPPLIER"
-          });
-        }
-        
-        // Supplier is registered - create user account with supplier role
-        console.log(`[Auth] Creating supplier account for ${claims.email} (Supplier: ${supplier.supplierName})`);
-        
-        // Safely extract first/last name from contact person if available
-        const contactPerson = supplier.contactPerson || '';
-        const nameParts = contactPerson.split(' ');
-        const fallbackFirstName = nameParts[0] || 'User';
-        const fallbackLastName = nameParts.slice(1).join(' ') || '';
-        
-        user = await storage.upsertUser({
-          id: claims.sub,
-          email: claims.email,
-          firstName: claims.first_name || claims.given_name || fallbackFirstName,
-          lastName: claims.last_name || claims.family_name || fallbackLastName,
-          role: 'supplier',
-          active: true,
-        });
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
       }
       
       res.json(user);
