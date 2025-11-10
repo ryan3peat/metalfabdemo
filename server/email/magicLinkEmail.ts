@@ -57,7 +57,7 @@ export function createMagicLinkEmailTemplate(
       </div>
 
       <div class="cta-section">
-        <a href="${data.magicLink}" class="cta-button">
+        <a href="${data.magicLink}" class="cta-button" style="color: #ffffff !important; text-decoration: none;">
           Log In to Supplier Portal
         </a>
       </div>

@@ -132,21 +132,53 @@ router.get('/verify-magic-link', async (req: Request, res: Response) => {
       });
     }
 
-    await storage.markMagicLinkAsUsed(magicLink.id);
-
-    if (req.session) {
-      req.session.userId = supplier.id;
-      req.session.userType = 'supplier';
+    // Get or create user record for the supplier
+    let user = await storage.getUserByEmail(magicLink.email);
+    
+    if (!user) {
+      // Create a user record for the supplier
+      const contactPerson = supplier.contactPerson || '';
+      const nameParts = contactPerson.split(' ');
+      const firstName = nameParts[0] || 'User';
+      const lastName = nameParts.slice(1).join(' ') || '';
+      
+      user = await storage.upsertUser({
+        email: magicLink.email,
+        firstName,
+        lastName,
+        role: 'supplier',
+        companyName: supplier.supplierName,
+        active: true,
+      });
     }
 
-    return res.status(200).json({
-      success: true,
-      supplier: {
-        id: supplier.id,
-        email: supplier.email,
-        supplierName: supplier.supplierName,
-      },
+    // Create proper passport session
+    req.login({ supplierUser: user, authType: 'supplier' }, async (err) => {
+      if (err) {
+        console.error('Error creating session:', err);
+        return res.status(500).json({
+          message: 'Failed to create session',
+        });
+      }
+
+      // Only mark as used after successful session creation
+      try {
+        await storage.markMagicLinkAsUsed(magicLink.id);
+      } catch (markError) {
+        console.error('Error marking magic link as used:', markError);
+        // Session is created, so this is non-critical
+      }
+
+      return res.status(200).json({
+        success: true,
+        supplier: {
+          id: supplier.id,
+          email: supplier.email,
+          supplierName: supplier.supplierName,
+        },
+      });
     });
+    return;
   } catch (error) {
     console.error('Error verifying magic link:', error);
     return res.status(500).json({
