@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -8,10 +8,22 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { AlertCircle, Info } from "lucide-react";
 import { AdminLoginForm } from "@/components/admin-login-form";
+import { useAuth } from "@/hooks/useAuth";
 
 export default function Landing() {
   const [showAdminDialog, setShowAdminDialog] = useState(false);
+  const { notRegisteredSupplier, errorMessage } = useAuth();
+  const [showAccessDenied, setShowAccessDenied] = useState(false);
+
+  // Show access denied alert when user is not a registered supplier
+  useEffect(() => {
+    if (notRegisteredSupplier) {
+      setShowAccessDenied(true);
+    }
+  }, [notRegisteredSupplier]);
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
@@ -55,6 +67,23 @@ export default function Landing() {
               Supplier Quotation Portal
             </p>
           </div>
+
+          {showAccessDenied && (
+            <Alert variant="destructive" className="text-left" data-testid="alert-access-denied">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>
+                {errorMessage || "Access denied. Only registered suppliers can access this portal."}
+              </AlertDescription>
+            </Alert>
+          )}
+
+          <Alert className="text-left bg-blue-50 dark:bg-blue-950 border-blue-200 dark:border-blue-800" data-testid="alert-info">
+            <Info className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+            <AlertDescription className="text-blue-900 dark:text-blue-100">
+              <strong>For Suppliers:</strong> You must be registered in our supplier directory to access this portal. 
+              If you've received a quote request email from us, you can use the link in that email to submit your quote without logging in.
+            </AlertDescription>
+          </Alert>
 
           <div className="flex justify-center pt-8">
             <Button 

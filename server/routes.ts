@@ -110,13 +110,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!user && req.user?.claims) {
         const claims = req.user.claims;
         
-        // Default all new OIDC users to 'supplier' role for security
-        // Admins must manually promote users to admin/procurement roles via User Management
+        // Check if the user's email exists in the suppliers database
+        const supplier = await storage.getSupplierByEmail(claims.email);
+        
+        if (!supplier) {
+          // User is not a registered supplier - deny access
+          console.log(`[Auth] Access denied for ${claims.email} - not a registered supplier`);
+          return res.status(403).json({ 
+            message: "Access denied. Only registered suppliers can access this portal. Please contact Essential Flavours if you believe this is an error.",
+            code: "NOT_REGISTERED_SUPPLIER"
+          });
+        }
+        
+        // Supplier is registered - create user account with supplier role
+        console.log(`[Auth] Creating supplier account for ${claims.email} (Supplier: ${supplier.supplierName})`);
+        
+        // Safely extract first/last name from contact person if available
+        const contactPerson = supplier.contactPerson || '';
+        const nameParts = contactPerson.split(' ');
+        const fallbackFirstName = nameParts[0] || 'User';
+        const fallbackLastName = nameParts.slice(1).join(' ') || '';
+        
         user = await storage.upsertUser({
           id: claims.sub,
           email: claims.email,
-          firstName: claims.first_name || claims.given_name || 'User',
-          lastName: claims.last_name || claims.family_name || '',
+          firstName: claims.first_name || claims.given_name || fallbackFirstName,
+          lastName: claims.last_name || claims.family_name || fallbackLastName,
           role: 'supplier',
           active: true,
         });
