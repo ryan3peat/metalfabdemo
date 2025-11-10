@@ -69,6 +69,21 @@ export const users = pgTable("users", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
+// Magic links table (for passwordless authentication)
+export const magicLinks = pgTable("magic_links", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  email: varchar("email", { length: 255 }).notNull(),
+  tokenHash: varchar("token_hash", { length: 64 }).notNull().unique(),
+  expiresAt: timestamp("expires_at").notNull(),
+  usedAt: timestamp("used_at"),
+  userId: varchar("user_id").references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_magic_links_token_hash").on(table.tokenHash),
+  index("idx_magic_links_email").on(table.email),
+  index("idx_magic_links_expires_at").on(table.expiresAt),
+]);
+
 // Suppliers table
 export const suppliers = pgTable("suppliers", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -245,6 +260,9 @@ export const supplierDocumentsRelations = relations(supplierDocuments, ({ one })
 
 export type UpsertUser = typeof users.$inferInsert;
 export type User = typeof users.$inferSelect;
+
+export type InsertMagicLink = typeof magicLinks.$inferInsert;
+export type MagicLink = typeof magicLinks.$inferSelect;
 
 export type InsertSupplier = typeof suppliers.$inferInsert;
 export type Supplier = typeof suppliers.$inferSelect;

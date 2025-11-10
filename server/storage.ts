@@ -5,6 +5,7 @@ import {
   requestSuppliers,
   supplierQuotes,
   supplierDocuments,
+  magicLinks,
   type User,
   type UpsertUser,
   type Supplier,
@@ -17,6 +18,8 @@ import {
   type InsertSupplierQuote,
   type SupplierDocument,
   type InsertSupplierDocument,
+  type MagicLink,
+  type InsertMagicLink,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, sql, desc } from "drizzle-orm";
@@ -92,6 +95,12 @@ export interface IStorage {
   
   // Utility
   generateRfqNumber(): Promise<string>;
+  
+  // Magic link operations
+  createMagicLink(magicLink: InsertMagicLink): Promise<MagicLink>;
+  getMagicLinkByTokenHash(tokenHash: string): Promise<MagicLink | undefined>;
+  markMagicLinkAsUsed(id: string): Promise<void>;
+  cleanupExpiredMagicLinks(): Promise<number>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -522,6 +531,36 @@ export class DatabaseStorage implements IStorage {
     const count = Number(result.count) + 1;
     const paddedCount = count.toString().padStart(5, '0');
     return `RFQ-${year}-${paddedCount}`;
+  }
+
+  // Magic link operations
+  async createMagicLink(magicLink: InsertMagicLink): Promise<MagicLink> {
+    const [created] = await db.insert(magicLinks).values(magicLink).returning();
+    return created;
+  }
+
+  async getMagicLinkByTokenHash(tokenHash: string): Promise<MagicLink | undefined> {
+    const [link] = await db
+      .select()
+      .from(magicLinks)
+      .where(eq(magicLinks.tokenHash, tokenHash));
+    return link;
+  }
+
+  async markMagicLinkAsUsed(id: string): Promise<void> {
+    await db
+      .update(magicLinks)
+      .set({ usedAt: new Date() })
+      .where(eq(magicLinks.id, id));
+  }
+
+  async cleanupExpiredMagicLinks(): Promise<number> {
+    const result = await db
+      .delete(magicLinks)
+      .where(
+        sql`${magicLinks.expiresAt} < NOW() OR ${magicLinks.usedAt} IS NOT NULL`
+      );
+    return result.rowCount || 0;
   }
 }
 
