@@ -329,6 +329,14 @@ export const insertSupplierQuoteSchema = createInsertSchema(supplierQuotes, {
     (val) => val === '' || val === null || val === undefined ? undefined : Number(val),
     z.number().positive("Freight cost must be greater than 0").optional()
   ),
+  validityDate: z.preprocess(
+    (val) => {
+      if (val === '' || val === null || val === undefined) return undefined;
+      if (val instanceof Date) return val;
+      return new Date(val as string);
+    },
+    z.date().optional()
+  ),
   shelfLife: z.string().optional(),
   storageRequirements: z.string().optional(),
   dangerousGoodsHandling: z.string().optional(),

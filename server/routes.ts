@@ -1018,9 +1018,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Price and lead time are required" });
       }
 
-      // Convert validityDate string to Date if provided
-      if (quoteData.validityDate) {
-        quoteData.validityDate = new Date(quoteData.validityDate);
+      // Convert validityDate string to Date if provided (and not empty)
+      let validityDate = null;
+      if (quoteData.validityDate && quoteData.validityDate.trim() !== '') {
+        validityDate = new Date(quoteData.validityDate);
       }
 
       // Create the supplier quote
@@ -1031,7 +1032,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         currency: quoteData.currency || 'AUD',
         moq: quoteData.moq,
         leadTime: quoteData.leadTime,
-        validityDate: quoteData.validityDate,
+        validityDate: validityDate,
         paymentTerms: quoteData.paymentTerms,
         additionalNotes: quoteData.additionalNotes,
         status: 'submitted',
