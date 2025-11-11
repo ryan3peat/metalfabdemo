@@ -10,6 +10,7 @@ import { emailService } from "./email/hybridEmailService";
 import { validateQuoteAccessToken } from "./middleware/tokenAuth";
 import { requireSupplierAccess } from "./middleware/supplierAuth";
 import authRoutes from "./routes/authRoutes";
+import { upload, validateFileSignature, getDocumentPath, deleteDocument, documentExists } from "./middleware/fileUpload";
 
 // Helper function to get user ID from local auth or supplier sessions
 function getUserId(req: any): string | undefined {
@@ -973,41 +974,139 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Upload a document for a quote (placeholder - actual upload will use object storage)
-  app.post('/api/supplier/quotes/:quoteId/documents', isAuthenticated, requireSupplierAccess, async (req: any, res) => {
-    try {
-      const supplier = req.supplier;
-      const userId = req.userId;
-      const { quoteId } = req.params;
-      const { documentType, fileUrl, fileName, fileSize, mimeType } = req.body;
+  // Upload a document for a quote
+  app.post('/api/supplier/quotes/:quoteId/documents',
+    isAuthenticated,
+    requireSupplierAccess,
+    upload.single('file'),
+    async (req: any, res) => {
+      try {
+        const supplier = req.supplier;
+        const userId = req.userId;
+        const { quoteId } = req.params;
+        const { documentType } = req.body;
+        const file = req.file;
 
-      // Verify supplier owns this quote
-      const quote = await storage.getSupplierQuote(quoteId);
-      if (!quote || quote.supplierId !== supplier.id) {
-        return res.status(403).json({ message: "Access denied to this quote" });
-      }
+        if (!file) {
+          return res.status(400).json({ message: "No file uploaded" });
+        }
 
-      // Verify quote has preliminary approval
-      if (quote.preliminaryApprovalStatus !== 'approved') {
-        return res.status(403).json({ 
-          message: "Documents can only be uploaded after preliminary approval" 
+        if (!documentType) {
+          // Clean up uploaded file if validation fails
+          await deleteDocument(file.filename);
+          return res.status(400).json({ message: "Document type is required" });
+        }
+
+        // Verify supplier owns this quote
+        const quote = await storage.getSupplierQuote(quoteId);
+        if (!quote || quote.supplierId !== supplier.id) {
+          await deleteDocument(file.filename);
+          return res.status(403).json({ message: "Access denied to this quote" });
+        }
+
+        // Verify quote has preliminary approval
+        if (quote.preliminaryApprovalStatus !== 'approved') {
+          await deleteDocument(file.filename);
+          return res.status(403).json({
+            message: "Documents can only be uploaded after preliminary approval"
+          });
+        }
+
+        // Validate file signature for security
+        const isValidFile = await validateFileSignature(getDocumentPath(file.filename));
+        if (!isValidFile) {
+          await deleteDocument(file.filename);
+          return res.status(400).json({ message: "Invalid or corrupted file" });
+        }
+
+        // Save document metadata to database
+        const document = await storage.createSupplierDocument({
+          supplierQuoteId: quoteId,
+          documentType,
+          fileUrl: file.filename, // Store filename, not full path
+          fileName: file.originalname,
+          fileSize: file.size.toString(),
+          mimeType: file.mimetype,
+          uploadedBy: userId,
         });
+
+        res.status(201).json({
+          message: "Document uploaded successfully",
+          document
+        });
+      } catch (error: any) {
+        console.error("Error uploading supplier document:", error);
+
+        // Clean up file if database operation failed
+        if (req.file) {
+          try {
+            await deleteDocument(req.file.filename);
+          } catch (cleanupError) {
+            console.error("Error cleaning up file:", cleanupError);
+          }
+        }
+
+        // Handle multer errors
+        if (error.code === 'LIMIT_FILE_SIZE') {
+          return res.status(413).json({ message: "File size exceeds 10MB limit" });
+        }
+
+        res.status(500).json({ message: error.message || "Failed to upload document" });
+      }
+    }
+  );
+
+  // Download a document
+  app.get('/api/documents/:documentId/download', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserId(req);
+      if (!userId) {
+        return res.status(401).json({ message: "Unauthorized" });
       }
 
-      const document = await storage.createSupplierDocument({
-        supplierQuoteId: quoteId,
-        documentType,
-        fileUrl,
-        fileName,
-        fileSize,
-        mimeType,
-        uploadedBy: userId,
-      });
+      const { documentId } = req.params;
 
-      res.status(201).json(document);
+      // Get document from database
+      const document = await storage.getSupplierDocumentById(documentId);
+      if (!document) {
+        return res.status(404).json({ message: "Document not found" });
+      }
+
+      // Get the quote to check access permissions
+      const quote = await storage.getSupplierQuote(document.supplierQuoteId);
+      if (!quote) {
+        return res.status(404).json({ message: "Quote not found" });
+      }
+
+      // Check if user has access (admin/procurement or quote owner)
+      const currentUser = await storage.getUser(userId);
+      const isAdmin = currentUser?.role === 'admin' || currentUser?.role === 'procurement';
+      const isQuoteOwner = req.supplier && req.supplier.id === quote.supplierId;
+
+      if (!isAdmin && !isQuoteOwner) {
+        return res.status(403).json({ message: "Access denied to this document" });
+      }
+
+      // Check if file exists
+      const filePath = getDocumentPath(document.fileUrl);
+      if (!documentExists(document.fileUrl)) {
+        return res.status(404).json({ message: "File not found on server" });
+      }
+
+      // Send file
+      res.download(filePath, document.fileName, (err) => {
+        if (err) {
+          console.error("Error downloading file:", err);
+          if (!res.headersSent) {
+            res.status(500).json({ message: "Failed to download file" });
+          }
+        }
+      });
     } catch (error) {
-      console.error("Error uploading supplier document:", error);
-      res.status(500).json({ message: "Failed to upload document" });
+      console.error("Error downloading document:", error);
+      if (!res.headersSent) {
+        res.status(500).json({ message: "Failed to download document" });
+      }
     }
   });
 
@@ -1018,10 +1117,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { documentId } = req.params;
 
       // Get document to verify ownership
-      const documents = await storage.getSupplierDocuments(''); // We need to get the document first
-      // TODO: Add getSupplierDocument(id) method to storage
-      
-      // For now, just delete - proper ownership check will be added with object storage integration
+      const document = await storage.getSupplierDocumentById(documentId);
+      if (!document) {
+        return res.status(404).json({ message: "Document not found" });
+      }
+
+      // Get quote to verify supplier owns it
+      const quote = await storage.getSupplierQuote(document.supplierQuoteId);
+      if (!quote || quote.supplierId !== supplier.id) {
+        return res.status(403).json({ message: "Access denied to this document" });
+      }
+
+      // Delete file from filesystem
+      try {
+        await deleteDocument(document.fileUrl);
+      } catch (fileError) {
+        console.error("Error deleting file from filesystem:", fileError);
+        // Continue with database deletion even if file deletion fails
+      }
+
+      // Delete document record from database
       await storage.deleteSupplierDocument(documentId);
       res.json({ message: "Document deleted successfully" });
     } catch (error) {

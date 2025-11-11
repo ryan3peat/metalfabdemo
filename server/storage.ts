@@ -73,6 +73,7 @@ export interface IStorage {
   
   // Document operations
   getSupplierDocuments(quoteId: string): Promise<SupplierDocument[]>;
+  getSupplierDocumentById(id: string): Promise<SupplierDocument | undefined>;
   createSupplierDocument(document: InsertSupplierDocument): Promise<SupplierDocument>;
   deleteSupplierDocument(id: string): Promise<void>;
 
@@ -434,6 +435,14 @@ export class DatabaseStorage implements IStorage {
       .from(supplierDocuments)
       .where(eq(supplierDocuments.supplierQuoteId, quoteId))
       .orderBy(desc(supplierDocuments.uploadedAt));
+  }
+
+  async getSupplierDocumentById(id: string): Promise<SupplierDocument | undefined> {
+    const [document] = await db
+      .select()
+      .from(supplierDocuments)
+      .where(eq(supplierDocuments.id, id));
+    return document;
   }
 
   async createSupplierDocument(documentData: InsertSupplierDocument): Promise<SupplierDocument> {
