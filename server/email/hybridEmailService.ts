@@ -224,6 +224,8 @@ export class HybridEmailService implements EmailProvider {
   ): Promise<{ success: boolean; messageId?: string; error?: string }> {
     const { subject, html } = createDocumentRequestEmailTemplate(recipient.name, documentRequestData);
     return this.sendEmail(recipient.email, subject, html);
+  }
+
   async sendPasswordSetupEmail(
     email: string,
     firstName: string,
