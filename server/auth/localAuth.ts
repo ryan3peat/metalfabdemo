@@ -6,6 +6,7 @@ import { storage } from "../storage";
 // Configuration for admin-only local authentication
 const ADMIN_ALLOWED_EMAILS = [
   "ryan@essentialflavours.com.au",
+  "ryanching1@outlook.com",
   "admin@essentialflavours.com",
   "mark@3peat.ai",
 ];
