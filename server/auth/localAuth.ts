@@ -3,14 +3,6 @@ import { Strategy as LocalStrategy } from "passport-local";
 import bcrypt from "bcrypt";
 import { storage } from "../storage";
 
-// Configuration for admin-only local authentication
-const ADMIN_ALLOWED_EMAILS = [
-  "ryan@essentialflavours.com.au",
-  "ryanching1@outlook.com",
-  "admin@essentialflavours.com",
-  "mark@3peat.ai",
-];
-
 // Login attempt tracking for rate limiting
 interface LoginAttempt {
   count: number;
@@ -34,12 +26,6 @@ passport.use(
       try {
         // Normalize email to lowercase for consistent rate limiting and validation
         const normalizedEmail = email.toLowerCase().trim();
-
-        // Check if email is in admin allowlist
-        if (!ADMIN_ALLOWED_EMAILS.includes(normalizedEmail)) {
-          console.warn(`[LocalAuth] Unauthorized login attempt for non-admin email: ${normalizedEmail}`);
-          return done(null, false, { message: "Invalid credentials" });
-        }
 
         // Check rate limiting (use normalized email as key)
         const attempts = loginAttempts.get(normalizedEmail) || { count: 0, lastAttempt: 0 };
@@ -69,6 +55,13 @@ passport.use(
           return done(null, false, { message: "Invalid credentials" });
         }
 
+        // Password authentication is only available for admin and procurement roles
+        if (user.role !== 'admin' && user.role !== 'procurement') {
+          console.warn(`[LocalAuth] Unauthorized login attempt for non-admin/procurement user: ${normalizedEmail} (role: ${user.role})`);
+          incrementFailedAttempts(normalizedEmail, attempts, now);
+          return done(null, false, { message: "Invalid credentials" });
+        }
+
         // Check if user is active
         if (!user.active) {
           console.warn(`[LocalAuth] Login attempt for inactive user: ${normalizedEmail}`);
@@ -78,7 +71,7 @@ passport.use(
         // Check if password is set
         if (!user.passwordHash) {
           console.warn(`[LocalAuth] Login attempt for user without password: ${normalizedEmail}`);
-          return done(null, false, { message: "Password not set. Please use Replit Auth or contact admin." });
+          return done(null, false, { message: "Password not set. Please complete password setup via the email link." });
         }
 
         // Verify password

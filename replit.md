@@ -39,6 +39,7 @@ The portal adheres to Material Design principles, utilizing the Roboto font fami
 -   **Magic Link Authentication:** Passwordless email authentication for suppliers with SHA-256 hashed tokens, 15-minute expiration, single-use enforcement, and rate limiting (10 req/15min per IP, 3 req/5min per email). Generic success messages prevent email enumeration.
 -   **Token-Based Quote Submission:** Frictionless quote submission for suppliers via secure, expiring tokens in RFQ notification emails.
 -   **Dual Authentication Model:** Magic Link for suppliers, local password authentication for admins/procurement staff.
+-   **Dynamic Password Authentication:** Password login is database-driven - any user with role 'admin' or 'procurement' can use password authentication. When an admin creates a new admin/procurement user, they automatically get password login access (no code changes needed).
 -   **Auto-generated RFQ Numbers:** Consistent `RFQ-YYYY-XXXXX` numbering.
 -   **Data Validation:** Extensive backend schema validation using Zod.
 -   **Public vs. Authenticated Routes:** Separate routing structures for secure and public access.
@@ -48,7 +49,13 @@ The portal adheres to Material Design principles, utilizing the Roboto font fami
 -   **Replit Object Storage:** For file uploads.
 -   **Microsoft Graph API:** Production email service for magic links and RFQ notifications.
 
-## Recent Changes (November 10, 2025)
+## Recent Changes (November 11, 2025)
+-   **Dynamic Admin Authentication:** Replaced hardcoded admin email allowlist with database-driven role checking. Password authentication now automatically available for any user with 'admin' or 'procurement' role - no code changes needed when creating new admin users.
+-   **Document Request System:** Added missing `document_requests` table to database. Admins can now request specific documents (COA, SDS, Halal cert, etc.) from suppliers via the Quote Detail page.
+-   **Email Template Fixes:** Fixed "Submit Quote" button text color (white) and "Login to Portal" link to use correct BASE_URL instead of development URL.
+-   **Password Setup Flow:** Fixed missing verify-setup-token endpoint and post-setup redirect to landing page.
+
+## Previous Changes (November 10, 2025)
 -   **Magic Link Authentication:** Implemented passwordless email authentication for suppliers to replace Replit Auth requirement. Suppliers now receive one-click login links via email with enhanced security:
     -   SHA-256 token hashing (no plaintext storage)
     -   32-byte random tokens (crypto.randomBytes)
