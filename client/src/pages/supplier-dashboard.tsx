@@ -4,7 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAuth } from "@/hooks/useAuth";
-import { Mail, Clock, CheckCircle2, AlertCircle, Package, Calendar } from "lucide-react";
+import { Mail, Clock, CheckCircle2, AlertCircle, Package, Calendar, FileText, Upload } from "lucide-react";
 import { Link } from "wouter";
 import { format } from "date-fns";
 
@@ -32,6 +32,8 @@ interface QuoteRequest {
     pricePerUnit: string;
     preliminaryApprovalStatus: string;
     submittedAt: string;
+    documentsRequested?: number;
+    documentsUploaded?: number;
   };
 }
 
@@ -117,13 +119,49 @@ export default function SupplierDashboard() {
             </div>
           </div>
         )}
+        {request.hasQuote && request.quote?.preliminaryApprovalStatus === 'approved' && (
+          <div className="pt-2 border-t space-y-2">
+            {request.quote.documentsRequested !== undefined && request.quote.documentsRequested > 0 ? (
+              <>
+                <div className="flex items-center justify-between text-sm">
+                  <div className="flex items-center gap-2">
+                    <FileText className="h-4 w-4 text-muted-foreground" />
+                    <span className="text-muted-foreground">Documents:</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="font-medium text-foreground">
+                      {request.quote.documentsUploaded || 0}/{request.quote.documentsRequested}
+                    </span>
+                    {(request.quote.documentsUploaded || 0) < request.quote.documentsRequested && (
+                      <Badge variant="secondary" className="bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400">
+                        <Upload className="h-3 w-3 mr-1" />
+                        Action Needed
+                      </Badge>
+                    )}
+                  </div>
+                </div>
+              </>
+            ) : (
+              <div className="text-xs text-muted-foreground flex items-center gap-2">
+                <FileText className="h-3 w-3" />
+                <span>No documents requested</span>
+              </div>
+            )}
+          </div>
+        )}
         <Link href={`/supplier/quote-requests/${request.id}`}>
           <Button 
             className="w-full" 
             variant={request.hasQuote ? "outline" : "default"}
             data-testid={`button-view-request-${request.id}`}
           >
-            {request.hasQuote ? 'View Quote' : 'Submit Quote'}
+            {request.hasQuote && request.quote?.preliminaryApprovalStatus === 'approved' && 
+             request.quote.documentsRequested && request.quote.documentsRequested > 0 && 
+             (request.quote.documentsUploaded || 0) < request.quote.documentsRequested
+              ? 'Upload Documents'
+              : request.hasQuote 
+              ? 'View Quote' 
+              : 'Submit Quote'}
           </Button>
         </Link>
       </CardContent>
