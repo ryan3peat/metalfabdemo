@@ -296,13 +296,15 @@ export default function QuoteRequestDetail() {
                         </p>
                       </div>
                     </div>
-                    <Button 
-                      variant={index === 0 ? "default" : "outline"} 
-                      className="w-full"
-                      data-testid={`button-select-${index + 1}`}
-                    >
-                      Select Quote
-                    </Button>
+                    <Link href={`/quote-requests/${request.id}/quotes/${supplier.quote!.id}`}>
+                      <Button
+                        variant={index === 0 ? "default" : "outline"}
+                        className="w-full"
+                        data-testid={`button-select-${index + 1}`}
+                      >
+                        Select Quote
+                      </Button>
+                    </Link>
                   </CardContent>
                 </Card>
               ))}

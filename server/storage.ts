@@ -5,6 +5,7 @@ import {
   requestSuppliers,
   supplierQuotes,
   supplierDocuments,
+  documentRequests,
   magicLinks,
   type User,
   type UpsertUser,
@@ -18,6 +19,8 @@ import {
   type InsertSupplierQuote,
   type SupplierDocument,
   type InsertSupplierDocument,
+  type DocumentRequest,
+  type InsertDocumentRequest,
   type MagicLink,
   type InsertMagicLink,
 } from "@shared/schema";
@@ -72,7 +75,12 @@ export interface IStorage {
   getSupplierDocuments(quoteId: string): Promise<SupplierDocument[]>;
   createSupplierDocument(document: InsertSupplierDocument): Promise<SupplierDocument>;
   deleteSupplierDocument(id: string): Promise<void>;
-  
+
+  // Document request operations
+  createDocumentRequest(documentRequest: InsertDocumentRequest): Promise<DocumentRequest>;
+  updateDocumentRequestEmailSent(id: string, emailSentAt: Date): Promise<void>;
+  getDocumentRequestsByQuote(quoteId: string): Promise<DocumentRequest[]>;
+
   // Quote request details with all related data
   getQuoteRequestDetails(requestId: string): Promise<{
     request: QuoteRequest;
@@ -84,7 +92,14 @@ export interface IStorage {
       quote: SupplierQuote | null;
     }>;
   } | undefined>;
-  
+
+  // Get individual quote details with supplier and request info
+  getQuoteDetails(quoteId: string): Promise<{
+    quote: SupplierQuote;
+    supplier: Supplier;
+    request: QuoteRequest;
+  } | undefined>;
+
   // Dashboard statistics
   getAdminDashboardStats(): Promise<{
     activeRequests: number;
@@ -430,6 +445,27 @@ export class DatabaseStorage implements IStorage {
     await db.delete(supplierDocuments).where(eq(supplierDocuments.id, id));
   }
 
+  // Document request operations
+  async createDocumentRequest(documentRequestData: InsertDocumentRequest): Promise<DocumentRequest> {
+    const [documentRequest] = await db.insert(documentRequests).values(documentRequestData).returning();
+    return documentRequest;
+  }
+
+  async updateDocumentRequestEmailSent(id: string, emailSentAt: Date): Promise<void> {
+    await db
+      .update(documentRequests)
+      .set({ emailSentAt })
+      .where(eq(documentRequests.id, id));
+  }
+
+  async getDocumentRequestsByQuote(quoteId: string): Promise<DocumentRequest[]> {
+    return await db
+      .select()
+      .from(documentRequests)
+      .where(eq(documentRequests.quoteId, quoteId))
+      .orderBy(desc(documentRequests.requestedAt));
+  }
+
   async getQuoteRequestDetails(requestId: string): Promise<{
     request: QuoteRequest;
     suppliers: Array<{
@@ -474,6 +510,30 @@ export class DatabaseStorage implements IStorage {
     return {
       request,
       suppliers: suppliersWithQuotes,
+    };
+  }
+
+  async getQuoteDetails(quoteId: string): Promise<{
+    quote: SupplierQuote;
+    supplier: Supplier;
+    request: QuoteRequest;
+  } | undefined> {
+    // Get the quote
+    const [quote] = await db.select().from(supplierQuotes).where(eq(supplierQuotes.id, quoteId));
+    if (!quote) return undefined;
+
+    // Get the supplier
+    const [supplier] = await db.select().from(suppliers).where(eq(suppliers.id, quote.supplierId));
+    if (!supplier) return undefined;
+
+    // Get the quote request
+    const [request] = await db.select().from(quoteRequests).where(eq(quoteRequests.id, quote.requestId));
+    if (!request) return undefined;
+
+    return {
+      quote,
+      supplier,
+      request,
     };
   }
 

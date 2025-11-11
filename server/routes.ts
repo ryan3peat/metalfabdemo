@@ -4,7 +4,7 @@ import { storage } from "./storage";
 import { setupAuth, isAuthenticated } from "./auth";
 import localPassport from "./auth/localAuth";
 import { hashPassword, validatePasswordComplexity } from "./auth/localAuth";
-import { insertUserSchema, insertSupplierSchema, insertSupplierQuoteSchema } from "@shared/schema";
+import { insertUserSchema, insertSupplierSchema, insertSupplierQuoteSchema, insertDocumentRequestSchema } from "@shared/schema";
 import { generateAccessToken, generateQuoteSubmissionUrl } from "./email/emailService";
 import { emailService } from "./email/hybridEmailService";
 import { validateQuoteAccessToken } from "./middleware/tokenAuth";
@@ -449,14 +449,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const currentUser = await storage.getUser(userId);
-      
+
       if (currentUser?.role !== 'admin' && currentUser?.role !== 'procurement') {
         return res.status(403).json({ message: "Forbidden: Admin or procurement access required" });
       }
 
       const { id } = req.params;
       const details = await storage.getQuoteRequestDetails(id);
-      
+
       if (!details) {
         return res.status(404).json({ message: "Quote request not found" });
       }
@@ -465,6 +465,111 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching quote request details:", error);
       res.status(500).json({ message: "Failed to fetch quote request details" });
+    }
+  });
+
+  // Get individual quote details (admin/procurement only)
+  app.get('/api/quotes/:quoteId', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserId(req);
+      if (!userId) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const currentUser = await storage.getUser(userId);
+
+      if (currentUser?.role !== 'admin' && currentUser?.role !== 'procurement') {
+        return res.status(403).json({ message: "Forbidden: Admin or procurement access required" });
+      }
+
+      const { quoteId } = req.params;
+      const quoteDetails = await storage.getQuoteDetails(quoteId);
+
+      if (!quoteDetails) {
+        return res.status(404).json({ message: "Quote not found" });
+      }
+
+      res.json(quoteDetails);
+    } catch (error) {
+      console.error("Error fetching quote details:", error);
+      res.status(500).json({ message: "Failed to fetch quote details" });
+    }
+  });
+
+  // Request documents from supplier (admin/procurement only)
+  app.post('/api/quotes/:quoteId/request-documents', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserId(req);
+      if (!userId) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const currentUser = await storage.getUser(userId);
+
+      if (currentUser?.role !== 'admin' && currentUser?.role !== 'procurement') {
+        return res.status(403).json({ message: "Forbidden: Admin or procurement access required" });
+      }
+
+      const { quoteId } = req.params;
+
+      // Validate request body
+      const validationResult = insertDocumentRequestSchema.safeParse({
+        ...req.body,
+        quoteId,
+      });
+
+      if (!validationResult.success) {
+        return res.status(400).json({
+          message: "Invalid request data",
+          errors: validationResult.error.errors
+        });
+      }
+
+      // Get quote details to fetch supplier information
+      const quoteDetails = await storage.getQuoteDetails(quoteId);
+      if (!quoteDetails) {
+        return res.status(404).json({ message: "Quote not found" });
+      }
+
+      const { quote, supplier, request } = quoteDetails;
+
+      // Create document request record
+      const documentRequest = await storage.createDocumentRequest({
+        quoteId,
+        requestedDocuments: req.body.requestedDocuments,
+        requestedBy: userId,
+      });
+
+      // Send email notification to supplier
+      try {
+        const emailResult = await emailService.sendDocumentRequestEmail(
+          {
+            email: supplier.email,
+            name: supplier.supplierName,
+          },
+          {
+            rfqNumber: request.requestNumber,
+            materialName: request.materialName,
+            requestedDocuments: req.body.requestedDocuments,
+            supplierPortalUrl: `${process.env.BASE_URL || 'http://localhost:5000'}/supplier/quote-requests/${quote.requestId}`,
+          }
+        );
+
+        if (emailResult.success) {
+          await storage.updateDocumentRequestEmailSent(documentRequest.id, new Date());
+        }
+      } catch (emailError) {
+        console.error("Error sending document request email:", emailError);
+        // Don't fail the request if email fails
+      }
+
+      res.json({
+        message: "Document request sent successfully",
+        documentRequest
+      });
+    } catch (error) {
+      console.error("Error requesting documents:", error);
+      res.status(500).json({ message: "Failed to request documents" });
     }
   });
 

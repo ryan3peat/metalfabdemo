@@ -37,6 +37,7 @@ export const documentTypeEnum = pgEnum('document_type', [
   'gfsi_cert',
   'organic'
 ]);
+export const documentRequestStatusEnum = pgEnum('document_request_status', ['pending', 'completed']);
 
 // ============================================================================
 // TABLE DEFINITIONS
@@ -192,6 +193,20 @@ export const supplierDocuments = pgTable("supplier_documents", {
   index("idx_supplier_documents_quote_id").on(table.supplierQuoteId),
 ]);
 
+// Document requests table (tracks which documents admin/procurement requested from supplier)
+export const documentRequests = pgTable("document_requests", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  quoteId: uuid("quote_id").notNull().references(() => supplierQuotes.id, { onDelete: 'cascade' }),
+  requestedDocuments: jsonb("requested_documents").$type<string[]>().notNull(),
+  requestedBy: varchar("requested_by").notNull().references(() => users.id),
+  requestedAt: timestamp("requested_at").defaultNow().notNull(),
+  status: documentRequestStatusEnum("status").notNull().default('pending'),
+  emailSentAt: timestamp("email_sent_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_document_requests_quote_id").on(table.quoteId),
+]);
+
 // ============================================================================
 // RELATIONS
 // ============================================================================
@@ -240,6 +255,7 @@ export const supplierQuotesRelations = relations(supplierQuotes, ({ one, many })
     references: [suppliers.id],
   }),
   documents: many(supplierDocuments),
+  documentRequests: many(documentRequests),
 }));
 
 export const supplierDocumentsRelations = relations(supplierDocuments, ({ one }) => ({
@@ -249,6 +265,17 @@ export const supplierDocumentsRelations = relations(supplierDocuments, ({ one })
   }),
   uploader: one(users, {
     fields: [supplierDocuments.uploadedBy],
+    references: [users.id],
+  }),
+}));
+
+export const documentRequestsRelations = relations(documentRequests, ({ one }) => ({
+  quote: one(supplierQuotes, {
+    fields: [documentRequests.quoteId],
+    references: [supplierQuotes.id],
+  }),
+  requester: one(users, {
+    fields: [documentRequests.requestedBy],
     references: [users.id],
   }),
 }));
@@ -277,6 +304,9 @@ export type SupplierQuote = typeof supplierQuotes.$inferSelect;
 
 export type InsertSupplierDocument = typeof supplierDocuments.$inferInsert;
 export type SupplierDocument = typeof supplierDocuments.$inferSelect;
+
+export type InsertDocumentRequest = typeof documentRequests.$inferInsert;
+export type DocumentRequest = typeof documentRequests.$inferSelect;
 
 // ============================================================================
 // VALIDATION SCHEMAS
@@ -360,5 +390,27 @@ export const insertSupplierDocumentSchema = createInsertSchema(supplierDocuments
   id: true,
   uploadedBy: true,
   uploadedAt: true,
+  createdAt: true,
+});
+
+export const insertDocumentRequestSchema = createInsertSchema(documentRequests, {
+  requestedDocuments: z.array(z.enum([
+    'coa',
+    'pif',
+    'specification',
+    'sds',
+    'halal',
+    'kosher',
+    'natural_status',
+    'process_flow',
+    'gfsi_cert',
+    'organic'
+  ])).min(1, "At least one document must be selected"),
+}).omit({
+  id: true,
+  requestedBy: true,
+  requestedAt: true,
+  status: true,
+  emailSentAt: true,
   createdAt: true,
 });

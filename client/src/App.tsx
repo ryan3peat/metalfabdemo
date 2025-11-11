@@ -16,6 +16,7 @@ import Suppliers from "@/pages/suppliers";
 import QuoteRequests from "@/pages/quote-requests";
 import CreateQuoteRequest from "@/pages/create-quote-request";
 import QuoteRequestDetail from "@/pages/quote-request-detail";
+import QuoteDetail from "@/pages/quote-detail";
 import QuoteSubmission from "@/pages/quote-submission";
 import SupplierQuoteDetail from "@/pages/supplier-quote-detail";
 import VerifyLogin from "@/pages/verify-login";
@@ -40,6 +41,7 @@ function AuthenticatedRouter() {
       {isAdmin && <Route path="/suppliers" component={Suppliers} />}
       {isAdmin && <Route path="/quote-requests" component={QuoteRequests} />}
       {isAdmin && <Route path="/quote-requests/create" component={CreateQuoteRequest} />}
+      {isAdmin && <Route path="/quote-requests/:requestId/quotes/:quoteId" component={QuoteDetail} />}
       {isAdmin && <Route path="/quote-requests/:id" component={QuoteRequestDetail} />}
       {isAdmin && <Route path="/users" component={UserManagement} />}
       {/* Supplier routes */}
