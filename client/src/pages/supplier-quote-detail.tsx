@@ -15,6 +15,7 @@ import { z } from "zod";
 import { format } from "date-fns";
 import { Calendar, Package, FileText, AlertCircle, CheckCircle2 } from "lucide-react";
 import { queryClient, apiRequest } from "@/lib/queryClient";
+import DocumentManager from "@/components/DocumentManager";
 
 const quoteFormSchema = insertSupplierQuoteSchema.extend({
   requestId: z.string().min(1, "Request ID is required"),
@@ -535,24 +536,26 @@ export default function SupplierQuoteDetail() {
 
         {/* Document Upload Section (if approved) */}
         {hasQuote && quote && quote.preliminaryApprovalStatus === 'approved' && (
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
+          <div>
+            <div className="mb-4 p-4 bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-900 rounded-lg">
+              <div className="flex items-center gap-2">
                 <CheckCircle2 className="h-5 w-5 text-green-600" />
-                Document Upload
-              </CardTitle>
-              <CardDescription>
-                Your quote has been preliminarily approved. Please upload the required documents.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="bg-muted p-4 rounded-md">
-                <p className="text-sm text-muted-foreground">
-                  Document upload functionality will be available in the next update.
-                </p>
+                <div>
+                  <h3 className="font-semibold text-green-900 dark:text-green-100">
+                    Quote Approved - Action Required
+                  </h3>
+                  <p className="text-sm text-green-800 dark:text-green-200">
+                    Your quote has been preliminarily approved. Please upload any requested documents below.
+                  </p>
+                </div>
               </div>
-            </CardContent>
-          </Card>
+            </div>
+            <DocumentManager
+              quoteId={quote.id}
+              canUpload={true}
+              canDelete={true}
+            />
+          </div>
         )}
       </div>
     </div>

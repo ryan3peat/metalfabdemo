@@ -574,6 +574,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get document requests for a quote
+  app.get('/api/quotes/:quoteId/document-requests', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserId(req);
+      if (!userId) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const { quoteId } = req.params;
+
+      // Get document requests for this quote
+      const documentRequests = await storage.getDocumentRequestsByQuote(quoteId);
+
+      res.json(documentRequests);
+    } catch (error) {
+      console.error("Error fetching document requests:", error);
+      res.status(500).json({ message: "Failed to fetch document requests" });
+    }
+  });
+
   app.post('/api/quote-requests', isAuthenticated, async (req: any, res) => {
     try {
       const userId = getUserId(req);

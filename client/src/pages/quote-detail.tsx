@@ -30,6 +30,7 @@ import {
 } from "lucide-react";
 import { format } from "date-fns";
 import { useState } from "react";
+import DocumentManager from "@/components/DocumentManager";
 
 interface QuoteDetails {
   quote: {
@@ -488,6 +489,13 @@ export default function QuoteDetail() {
           </CardContent>
         </Card>
       )}
+
+      {/* Documents Section */}
+      <DocumentManager
+        quoteId={quote.id}
+        canUpload={false}
+        canDelete={false}
+      />
 
       {/* Quote Metadata */}
       <Card>
