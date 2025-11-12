@@ -589,7 +589,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Send email notification to supplier
       try {
-        const supplierPortalUrl = `${process.env.BASE_URL || 'http://localhost:5000'}/supplier/quote-requests/${quote.requestId}`;
+        const baseUrl = getBaseUrl();
+        const supplierPortalUrl = `${baseUrl}/supplier/quote-requests/${quote.requestId}`;
         
         console.log(`📧 Sending document request email to ${supplier.email}`);
         console.log(`   Link: ${supplierPortalUrl}`);
