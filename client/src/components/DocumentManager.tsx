@@ -269,9 +269,66 @@ export default function DocumentManager({
     : DOCUMENT_TYPES.map(d => d.value);
 
   const missingDocuments = requestedDocTypes.filter(type => !uploadedDocTypes.includes(type));
+  const allDocumentsComplete = uniqueRequestedDocs.length > 0 && missingDocuments.length === 0;
 
   return (
     <div className="space-y-6">
+      {/* Outstanding Documents Alert (for suppliers) */}
+      {canUpload && uniqueRequestedDocs.length > 0 && missingDocuments.length > 0 && (
+        <Card className="border-amber-200 dark:border-amber-900 bg-amber-50 dark:bg-amber-950/20">
+          <CardHeader>
+            <div className="flex items-center gap-2">
+              <AlertCircle className="h-5 w-5 text-amber-600" />
+              <CardTitle className="text-amber-900 dark:text-amber-100">
+                Outstanding Documents Required
+              </CardTitle>
+            </div>
+            <CardDescription className="text-amber-800 dark:text-amber-200">
+              Please upload the following {missingDocuments.length} document{missingDocuments.length !== 1 ? 's' : ''} to complete your submission
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              {missingDocuments.map((docType) => (
+                <div
+                  key={docType}
+                  className="flex items-center gap-3 p-3 bg-white dark:bg-gray-900 rounded-lg border border-amber-200 dark:border-amber-900"
+                >
+                  <div className="h-8 w-8 rounded-full bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center flex-shrink-0">
+                    <FileText className="h-4 w-4 text-amber-600" />
+                  </div>
+                  <div className="flex-1">
+                    <p className="font-medium text-amber-900 dark:text-amber-100">
+                      {DOCUMENT_LABELS[docType]}
+                    </p>
+                    <p className="text-xs text-amber-700 dark:text-amber-300">
+                      Required - Not yet uploaded
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* All Documents Complete (for suppliers) */}
+      {canUpload && allDocumentsComplete && (
+        <Card className="border-green-200 dark:border-green-900 bg-green-50 dark:bg-green-950/20">
+          <CardHeader>
+            <div className="flex items-center gap-2">
+              <CheckCircle2 className="h-5 w-5 text-green-600" />
+              <CardTitle className="text-green-900 dark:text-green-100">
+                All Documents Uploaded
+              </CardTitle>
+            </div>
+            <CardDescription className="text-green-800 dark:text-green-200">
+              Thank you! All requested documents have been uploaded successfully
+            </CardDescription>
+          </CardHeader>
+        </Card>
+      )}
+
       {/* Upload Section */}
       {canUpload && (
         <Card>

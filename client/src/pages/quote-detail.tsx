@@ -102,6 +102,24 @@ export default function QuoteDetail() {
     enabled: !!quoteId,
   });
 
+  // Fetch document requests for this quote
+  const { data: documentRequests = [] } = useQuery<Array<{ id: string; requestedDocuments: string[]; requestedAt: string; status: string }>>({
+    queryKey: ['/api/quotes', quoteId, 'document-requests'],
+    enabled: !!quoteId && data?.quote.preliminaryApprovalStatus === 'approved',
+  });
+
+  // Fetch uploaded documents for this quote
+  const { data: uploadedDocuments = [] } = useQuery<Array<{ id: string; documentType: string; fileName: string; uploadedAt: string }>>({
+    queryKey: ['/api/supplier/quotes', quoteId, 'documents'],
+    enabled: !!quoteId && data?.quote.preliminaryApprovalStatus === 'approved',
+  });
+
+  // Calculate document status
+  const allRequestedDocs = Array.from(new Set(documentRequests.flatMap(req => req.requestedDocuments)));
+  const uploadedDocTypes = uploadedDocuments.map(doc => doc.documentType);
+  const missingDocs = allRequestedDocs.filter(docType => !uploadedDocTypes.includes(docType));
+  const documentsComplete = allRequestedDocs.length > 0 && missingDocs.length === 0;
+
   const updateApprovalMutation = useMutation({
     mutationFn: async (status: 'approved' | 'rejected') => {
       const response = await fetch(`/api/supplier/quotes/${quoteId}/preliminary-approval`, {
@@ -554,6 +572,73 @@ export default function QuoteDetail() {
       )}
 
       {/* Documents Section */}
+      {quote.preliminaryApprovalStatus === 'approved' && allRequestedDocs.length > 0 && (
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <FileCheck className="h-5 w-5 text-primary" />
+                <CardTitle>Document Upload Status</CardTitle>
+              </div>
+              <Badge variant={documentsComplete ? 'default' : 'secondary'}>
+                {uploadedDocuments.length} / {allRequestedDocs.length} Uploaded
+              </Badge>
+            </div>
+            <CardDescription>
+              {documentsComplete
+                ? 'All requested documents have been uploaded'
+                : `Waiting for supplier to upload ${missingDocs.length} document${missingDocs.length !== 1 ? 's' : ''}`}
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              {DOCUMENT_TYPES.filter(dt => allRequestedDocs.includes(dt.value)).map((docType) => {
+                const isUploaded = uploadedDocTypes.includes(docType.value);
+                const uploadedDoc = uploadedDocuments.find(d => d.documentType === docType.value);
+
+                return (
+                  <div
+                    key={docType.value}
+                    className={`flex items-center justify-between p-3 rounded-lg border ${
+                      isUploaded
+                        ? 'bg-green-50 dark:bg-green-950/20 border-green-200 dark:border-green-900'
+                        : 'bg-amber-50 dark:bg-amber-950/20 border-amber-200 dark:border-amber-900'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      {isUploaded ? (
+                        <CheckCircle className="h-5 w-5 text-green-600 flex-shrink-0" />
+                      ) : (
+                        <Clock className="h-5 w-5 text-amber-600 flex-shrink-0" />
+                      )}
+                      <div>
+                        <p className={`text-sm font-medium ${isUploaded ? 'text-green-900 dark:text-green-100' : 'text-amber-900 dark:text-amber-100'}`}>
+                          {docType.label}
+                        </p>
+                        {isUploaded && uploadedDoc && (
+                          <p className="text-xs text-green-700 dark:text-green-300">
+                            Uploaded {format(new Date(uploadedDoc.uploadedAt), "MMM d, yyyy 'at' h:mm a")}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                    {isUploaded ? (
+                      <Badge variant="outline" className="bg-green-100 text-green-800 border-green-300 dark:bg-green-900/30 dark:text-green-400">
+                        Complete
+                      </Badge>
+                    ) : (
+                      <Badge variant="outline" className="bg-amber-100 text-amber-800 border-amber-300 dark:bg-amber-900/30 dark:text-amber-400">
+                        Pending
+                      </Badge>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       <DocumentManager
         quoteId={quote.id}
         canUpload={false}

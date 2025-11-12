@@ -7,6 +7,8 @@ import type { DocumentRequestEmailData } from './documentRequestEmail';
 import { createDocumentRequestEmailTemplate } from './documentRequestEmail';
 import type { PasswordSetupEmailData } from './passwordSetupEmail';
 import { createPasswordSetupEmailTemplate } from './passwordSetupEmail';
+import type { DocumentUploadNotificationData } from './documentUploadNotificationEmail';
+import { createDocumentUploadNotificationTemplate } from './documentUploadNotificationEmail';
 
 interface EmailProvider {
   sendRFQNotification(
@@ -234,6 +236,28 @@ export class HybridEmailService implements EmailProvider {
   ): Promise<{ success: boolean; messageId?: string; error?: string }> {
     const { subject, html } = createPasswordSetupEmailTemplate(firstName, lastName, passwordSetupData);
     return this.sendEmail(email, subject, html);
+  }
+
+  async sendDocumentUploadNotification(
+    recipients: string[],
+    notificationData: DocumentUploadNotificationData
+  ): Promise<{ success: boolean; messageId?: string; error?: string }> {
+    const { subject, html } = createDocumentUploadNotificationTemplate(notificationData);
+
+    console.log(`📧 [${this.providerName}] Sending document upload notification to ${recipients.length} recipient(s)`);
+
+    // Send to all recipients (admins/procurement staff)
+    const results = await Promise.all(
+      recipients.map(email => this.sendEmail(email, subject, html))
+    );
+
+    const allSuccessful = results.every(r => r.success);
+
+    return {
+      success: allSuccessful,
+      messageId: allSuccessful ? results[0]?.messageId : undefined,
+      error: allSuccessful ? undefined : 'Some notifications failed to send'
+    };
   }
 }
 

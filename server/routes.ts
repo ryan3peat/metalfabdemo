@@ -1,6 +1,9 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
+import { db } from "./db";
+import { users } from "@shared/schema";
+import { sql } from "drizzle-orm";
 import { setupAuth, isAuthenticated } from "./auth";
 import localPassport from "./auth/localAuth";
 import { hashPassword, validatePasswordComplexity } from "./auth/localAuth";
@@ -1119,6 +1122,64 @@ export async function registerRoutes(app: Express): Promise<Server> {
           mimeType: file.mimetype,
           uploadedBy: userId,
         });
+
+        // Send notification email to admins/procurement staff ONLY when all documents are complete
+        try {
+          // Get quote details for email
+          const quoteDetails = await storage.getQuoteDetails(quoteId);
+
+          if (quoteDetails) {
+            const { quote, supplier: quoteSupplier, request } = quoteDetails;
+
+            // Get all uploaded documents (including the one we just uploaded)
+            const allUploadedDocs = await storage.getSupplierDocuments(quoteId);
+            const uploadedDocTypes = allUploadedDocs.map(d => d.documentType);
+
+            // Get all requested documents
+            const documentRequests = await storage.getDocumentRequestsByQuote(quoteId);
+            const allRequestedDocTypes = Array.from(
+              new Set(documentRequests.flatMap(dr => dr.requestedDocuments as string[]))
+            );
+
+            // Check if ALL requested documents are now uploaded
+            const allDocumentsComplete = allRequestedDocTypes.length > 0 &&
+              allRequestedDocTypes.every(docType => uploadedDocTypes.includes(docType as any));
+
+            // Only send notification if this upload completes ALL documents
+            if (allDocumentsComplete) {
+              // Get admin/procurement emails
+              const adminUsers = await db.select()
+                .from(users)
+                .where(sql`${users.role} IN ('admin', 'procurement') AND ${users.active} = true`);
+
+              const adminEmails = adminUsers
+                .filter(u => u.email)
+                .map(u => u.email as string);
+
+              if (adminEmails.length > 0 && quote.requestId) {
+                const quoteDetailUrl = `${getBaseUrl()}/quote-requests/${quote.requestId}/quotes/${quoteId}`;
+
+                await emailService.sendDocumentUploadNotification(adminEmails, {
+                  supplierName: quoteSupplier.supplierName,
+                  rfqNumber: request.requestNumber,
+                  materialName: request.materialName,
+                  documentType,
+                  fileName: file.originalname,
+                  quoteDetailUrl,
+                  totalUploaded: allUploadedDocs.length,
+                  totalRequested: allRequestedDocTypes.length,
+                });
+
+                console.log(`✅ All documents complete! Notification sent to ${adminEmails.length} admin(s)`);
+              }
+            } else {
+              console.log(`📄 Document uploaded. ${allRequestedDocTypes.length - uploadedDocTypes.length} document(s) still pending. No notification sent.`);
+            }
+          }
+        } catch (emailError) {
+          // Don't fail the upload if email fails
+          console.error("Failed to send document upload notification email:", emailError);
+        }
 
         res.status(201).json({
           message: "Document uploaded successfully",
