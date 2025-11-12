@@ -572,6 +572,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const { quote, supplier, request } = quoteDetails;
 
+      // Validate quote has requestId before proceeding
+      if (!quote.requestId) {
+        console.error(`❌ CRITICAL: Quote ${quoteId} is missing requestId - cannot generate email link`);
+        return res.status(500).json({ 
+          message: "Internal error: Quote is missing required request reference" 
+        });
+      }
+
       // Create document request record
       const documentRequest = await storage.createDocumentRequest({
         quoteId,
@@ -581,6 +589,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Send email notification to supplier
       try {
+        const supplierPortalUrl = `${process.env.BASE_URL || 'http://localhost:5000'}/supplier/quote-requests/${quote.requestId}`;
+        
+        console.log(`📧 Sending document request email to ${supplier.email}`);
+        console.log(`   Link: ${supplierPortalUrl}`);
+        
         const emailResult = await emailService.sendDocumentRequestEmail(
           {
             email: supplier.email,
@@ -590,7 +603,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             rfqNumber: request.requestNumber,
             materialName: request.materialName,
             requestedDocuments: req.body.requestedDocuments,
-            supplierPortalUrl: `${process.env.BASE_URL || 'http://localhost:5000'}/supplier/quote-requests/${quote.requestId}`,
+            supplierPortalUrl,
           }
         );
 
