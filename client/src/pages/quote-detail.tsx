@@ -278,6 +278,11 @@ export default function QuoteDetail() {
             {approvalStatusLabels[quote.preliminaryApprovalStatus]}
           </Badge>
 
+          {/* DEBUG: Show what status we have */}
+          <div className="text-xs text-muted-foreground">
+            (Status: {quote.preliminaryApprovalStatus})
+          </div>
+
           {/* Actions - Only show if quote is initial_submitted (awaiting admin review) */}
           {quote.preliminaryApprovalStatus === 'initial_submitted' && (
             <>
