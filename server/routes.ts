@@ -948,8 +948,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Quote request not found" });
       }
 
-      // Get existing quote if any
-      const [existingQuote] = await storage.getSupplierQuotes(requestId);
 
       res.json({
         request,
@@ -974,7 +972,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log('Request body:', JSON.stringify(req.body, null, 2));
       
       const supplier = req.supplier;
-      const userId = req.userId;
       const { requestId, ...rawQuoteData } = req.body;
       
       console.log('Supplier ID:', supplier.id);
