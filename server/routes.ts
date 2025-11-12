@@ -1103,16 +1103,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
           supplierId: supplier.id,
         });
 
+        console.log('✅ New supplier quote created:', {
+          id: quote.id,
+          preliminaryApprovalStatus: quote.preliminaryApprovalStatus,
+          status: quote.status,
+        });
+
         // Update request_suppliers to mark response as submitted
         const requestSuppliers = await storage.getRequestSuppliers(requestId);
         const requestSupplier = requestSuppliers.find(rs => rs.supplierId === supplier.id);
-        
+
         if (requestSupplier) {
           await storage.updateRequestSupplier(requestSupplier.id, {
             responseSubmittedAt: new Date(),
           });
         }
       }
+
+      console.log('📤 Returning quote to supplier:', {
+        id: quote.id,
+        preliminaryApprovalStatus: quote.preliminaryApprovalStatus,
+      });
 
       res.json(quote);
     } catch (error) {

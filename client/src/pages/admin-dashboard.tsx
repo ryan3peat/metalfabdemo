@@ -15,13 +15,21 @@ interface DashboardStats {
 export default function AdminDashboard() {
   const { user } = useAuth();
 
-  const { data: stats, isLoading: statsLoading } = useQuery<DashboardStats>({
+  const { data: stats, isLoading: statsLoading, error: statsError } = useQuery<DashboardStats>({
     queryKey: ['/api/admin/dashboard'],
   });
 
   const { data: recentRequests, isLoading: requestsLoading } = useQuery<QuoteRequest[]>({
     queryKey: ['/api/quote-requests'],
     select: (data) => data.slice(0, 5),
+  });
+
+  // DEBUG: Log stats data
+  console.log('📊 Dashboard Stats:', {
+    stats,
+    isLoading: statsLoading,
+    error: statsError,
+    recentRequests: recentRequests?.length || 0,
   });
 
   const formatResponseTime = (hours: number | null) => {
