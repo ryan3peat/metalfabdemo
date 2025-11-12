@@ -26,11 +26,10 @@ export function createDocumentUploadNotificationTemplate(
   data: DocumentUploadNotificationData
 ): { subject: string; html: string } {
   const documentLabel = DOCUMENT_LABELS[data.documentType] || data.documentType;
-  const isComplete = data.totalUploaded >= data.totalRequested && data.totalRequested > 0;
+  // This notification is only sent when all documents are complete
+  const isComplete = true;
 
-  const subject = isComplete
-    ? `All Documents Received - ${data.rfqNumber} - ${data.supplierName}`
-    : `New Document Uploaded - ${data.rfqNumber} - ${data.supplierName}`;
+  const subject = `✅ All Documents Received - ${data.rfqNumber} - ${data.supplierName}`;
 
   const html = `
 <!DOCTYPE html>
@@ -71,25 +70,19 @@ export function createDocumentUploadNotificationTemplate(
 <body>
   <div class="container">
     <div class="header">
-      <h1>${isComplete ? '✅' : '📄'} Document ${isComplete ? 'Complete' : 'Upload'} Notification</h1>
+      <h1>🎉 All Documents Complete</h1>
       <p>${data.rfqNumber}</p>
     </div>
 
     <div class="content">
       <div class="notification-box">
-        ${isComplete ? `
-          <div class="icon">🎉</div>
-          <h2>All Documents Received!</h2>
-          <p>${data.supplierName} has uploaded all requested documents for ${data.materialName}</p>
-        ` : `
-          <div class="icon">📎</div>
-          <h2>New Document Uploaded</h2>
-          <p>${data.supplierName} has uploaded a new document for ${data.materialName}</p>
-        `}
+        <div class="icon">✅</div>
+        <h2>All Requested Documents Received!</h2>
+        <p>${data.supplierName} has uploaded all ${data.totalRequested} requested documents for ${data.materialName}</p>
       </div>
 
       <div class="section">
-        <div class="section-title">Upload Details</div>
+        <div class="section-title">Submission Details</div>
         <div class="detail-row">
           <div class="detail-label">Supplier:</div>
           <div class="detail-value"><strong>${data.supplierName}</strong></div>
@@ -99,36 +92,35 @@ export function createDocumentUploadNotificationTemplate(
           <div class="detail-value">${data.materialName}</div>
         </div>
         <div class="detail-row">
-          <div class="detail-label">Document Type:</div>
-          <div class="detail-value">${documentLabel}</div>
+          <div class="detail-label">RFQ Number:</div>
+          <div class="detail-value">${data.rfqNumber}</div>
         </div>
         <div class="detail-row">
-          <div class="detail-label">File Name:</div>
-          <div class="detail-value">${data.fileName}</div>
+          <div class="detail-label">Last Upload:</div>
+          <div class="detail-value">${documentLabel} (${data.fileName})</div>
         </div>
       </div>
 
       <div class="section">
-        <div class="section-title">Upload Progress</div>
+        <div class="section-title">Document Completion Status</div>
         <div class="progress-bar">
-          <div class="progress-fill" style="width: ${(data.totalUploaded / data.totalRequested * 100).toFixed(0)}%">
-            ${data.totalUploaded} / ${data.totalRequested} Documents
+          <div class="progress-fill" style="width: 100%">
+            ✓ ${data.totalUploaded} / ${data.totalRequested} Documents Complete
           </div>
         </div>
-        <p style="text-align: center; color: #6b7280; font-size: 14px; margin-top: 8px;">
-          ${isComplete
-            ? '✓ All requested documents have been uploaded'
-            : `${data.totalRequested - data.totalUploaded} document${data.totalRequested - data.totalUploaded !== 1 ? 's' : ''} remaining`}
+        <p style="text-align: center; color: #059669; font-size: 14px; margin-top: 8px; font-weight: 600;">
+          ✓ All requested documents have been uploaded and are ready for review
         </p>
       </div>
 
       <div class="cta-section">
-        <p style="margin-bottom: 16px; font-size: 15px;"><strong>Review the Documents:</strong></p>
-        <a href="${data.quoteDetailUrl}" class="cta-button">View Quote Details</a>
+        <p style="margin-bottom: 16px; font-size: 15px;"><strong>Next Steps:</strong></p>
+        <p style="margin-bottom: 20px; color: #6b7280; font-size: 14px;">Review all ${data.totalUploaded} uploaded documents and proceed with your evaluation</p>
+        <a href="${data.quoteDetailUrl}" class="cta-button">Review All Documents</a>
       </div>
 
       <p style="color: #6b7280; font-size: 14px; margin-top: 24px;">
-        You can view and download all uploaded documents from the quote detail page in the admin portal.
+        All documents are now available for download and review in the quote detail page.
       </p>
     </div>
 

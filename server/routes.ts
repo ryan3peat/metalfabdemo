@@ -1123,7 +1123,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           uploadedBy: userId,
         });
 
-        // Send notification email to admins/procurement staff
+        // Send notification email to admins/procurement staff ONLY when all documents are complete
         try {
           // Get quote details for email
           const quoteDetails = await storage.getQuoteDetails(quoteId);
@@ -1131,37 +1131,49 @@ export async function registerRoutes(app: Express): Promise<Server> {
           if (quoteDetails) {
             const { quote, supplier: quoteSupplier, request } = quoteDetails;
 
-            // Get all uploaded documents and requested documents
+            // Get all uploaded documents (including the one we just uploaded)
             const allUploadedDocs = await storage.getSupplierDocuments(quoteId);
+            const uploadedDocTypes = allUploadedDocs.map(d => d.documentType);
+
+            // Get all requested documents
             const documentRequests = await storage.getDocumentRequestsByQuote(quoteId);
-            const totalRequested = documentRequests.reduce((sum, dr) =>
-              sum + (dr.requestedDocuments as string[]).length, 0
+            const allRequestedDocTypes = Array.from(
+              new Set(documentRequests.flatMap(dr => dr.requestedDocuments as string[]))
             );
 
-            // Get admin/procurement emails
-            const adminUsers = await db.select()
-              .from(users)
-              .where(sql`${users.role} IN ('admin', 'procurement') AND ${users.active} = true`);
+            // Check if ALL requested documents are now uploaded
+            const allDocumentsComplete = allRequestedDocTypes.length > 0 &&
+              allRequestedDocTypes.every(docType => uploadedDocTypes.includes(docType as any));
 
-            const adminEmails = adminUsers
-              .filter(u => u.email)
-              .map(u => u.email as string);
+            // Only send notification if this upload completes ALL documents
+            if (allDocumentsComplete) {
+              // Get admin/procurement emails
+              const adminUsers = await db.select()
+                .from(users)
+                .where(sql`${users.role} IN ('admin', 'procurement') AND ${users.active} = true`);
 
-            if (adminEmails.length > 0 && quote.requestId) {
-              const quoteDetailUrl = `${getBaseUrl()}/quote-requests/${quote.requestId}/quotes/${quoteId}`;
+              const adminEmails = adminUsers
+                .filter(u => u.email)
+                .map(u => u.email as string);
 
-              await emailService.sendDocumentUploadNotification(adminEmails, {
-                supplierName: quoteSupplier.supplierName,
-                rfqNumber: request.requestNumber,
-                materialName: request.materialName,
-                documentType,
-                fileName: file.originalname,
-                quoteDetailUrl,
-                totalUploaded: allUploadedDocs.length,
-                totalRequested,
-              });
+              if (adminEmails.length > 0 && quote.requestId) {
+                const quoteDetailUrl = `${getBaseUrl()}/quote-requests/${quote.requestId}/quotes/${quoteId}`;
 
-              console.log(`✅ Document upload notification sent to ${adminEmails.length} admin(s)`);
+                await emailService.sendDocumentUploadNotification(adminEmails, {
+                  supplierName: quoteSupplier.supplierName,
+                  rfqNumber: request.requestNumber,
+                  materialName: request.materialName,
+                  documentType,
+                  fileName: file.originalname,
+                  quoteDetailUrl,
+                  totalUploaded: allUploadedDocs.length,
+                  totalRequested: allRequestedDocTypes.length,
+                });
+
+                console.log(`✅ All documents complete! Notification sent to ${adminEmails.length} admin(s)`);
+              }
+            } else {
+              console.log(`📄 Document uploaded. ${allRequestedDocTypes.length - uploadedDocTypes.length} document(s) still pending. No notification sent.`);
             }
           }
         } catch (emailError) {
