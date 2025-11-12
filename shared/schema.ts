@@ -24,7 +24,13 @@ export const categoryEnum = pgEnum('category', ['natural', 'synthetic', 'natural
 export const formEnum = pgEnum('form', ['liquid', 'powder', 'paste']);
 export const quoteRequestStatusEnum = pgEnum('quote_request_status', ['draft', 'active', 'closed', 'cancelled']);
 export const quoteStatusEnum = pgEnum('quote_status', ['submitted', 'accepted', 'rejected']);
-export const preliminaryApprovalStatusEnum = pgEnum('preliminary_approval_status', ['pending', 'approved', 'rejected']);
+// Updated quote status enum to reflect the new workflow
+export const preliminaryApprovalStatusEnum = pgEnum('preliminary_approval_status', [
+  'initial_submitted',      // Supplier has submitted initial quote
+  'pending_documentation',  // Admin has requested additional documents
+  'final_submitted',        // All documentation complete
+  'rejected'                // Quote was rejected
+]);
 export const magicLinkTypeEnum = pgEnum('magic_link_type', ['login', 'password_setup']);
 export const documentTypeEnum = pgEnum('document_type', [
   'coa',
@@ -168,8 +174,12 @@ export const supplierQuotes = pgTable("supplier_quotes", {
   storageRequirements: text("storage_requirements"),
   dangerousGoodsHandling: text("dangerous_goods_handling"),
   
-  // Preliminary approval workflow
-  preliminaryApprovalStatus: preliminaryApprovalStatusEnum("preliminary_approval_status").notNull().default('pending'),
+  // Quote submission status workflow
+  // initial_submitted: Supplier has submitted initial quote (awaiting admin review)
+  // pending_documentation: Admin has requested additional documents from supplier
+  // final_submitted: All documentation complete (ready for final decision)
+  // rejected: Quote was rejected by admin
+  preliminaryApprovalStatus: preliminaryApprovalStatusEnum("preliminary_approval_status").notNull().default('initial_submitted'),
   preliminaryApprovedAt: timestamp("preliminary_approved_at"),
   preliminaryApprovedBy: varchar("preliminary_approved_by").references(() => users.id),
   

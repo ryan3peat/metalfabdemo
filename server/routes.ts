@@ -857,28 +857,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const now = new Date();
       
       // Categorize requests
-      const ongoing = quoteRequests.filter(qr => 
+      const ongoing = quoteRequests.filter(qr =>
         !qr.quote && new Date(qr.request.submitByDate) > now
       );
-      
-      const outstanding = quoteRequests.filter(qr => 
-        qr.quote && qr.quote.preliminaryApprovalStatus === 'pending'
+
+      // Pending Documentation: Quotes where supplier needs to upload documents
+      const pendingDocumentation = quoteRequests.filter(qr =>
+        qr.quote && qr.quote.preliminaryApprovalStatus === 'pending_documentation'
       );
-      
-      const expired = quoteRequests.filter(qr => 
+
+      const expired = quoteRequests.filter(qr =>
         !qr.quote && new Date(qr.request.submitByDate) <= now
       );
 
-      const approved = quoteRequests.filter(qr =>
-        qr.quote && qr.quote.preliminaryApprovalStatus === 'approved'
+      // Final Submitted: All documentation complete
+      const finalSubmitted = quoteRequests.filter(qr =>
+        qr.quote && qr.quote.preliminaryApprovalStatus === 'final_submitted'
+      );
+
+      // Initial Submitted: Awaiting admin review
+      const initialSubmitted = quoteRequests.filter(qr =>
+        qr.quote && qr.quote.preliminaryApprovalStatus === 'initial_submitted'
       );
 
       res.json({
         totalRequests: quoteRequests.length,
         ongoing: ongoing.length,
-        outstanding: outstanding.length,
+        pendingDocumentation: pendingDocumentation.length,  // Renamed from 'approved'
         expired: expired.length,
-        approved: approved.length,
+        finalSubmitted: finalSubmitted.length,
+        initialSubmitted: initialSubmitted.length,
         quotesSubmitted: quoteRequests.filter(qr => qr.quote).length,
       });
     } catch (error) {
@@ -899,13 +907,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         let documentsRequested = 0;
         let documentsUploaded = 0;
 
-        // For approved quotes, get document counts
-        if (qr.quote && qr.quote.preliminaryApprovalStatus === 'approved') {
+        // For quotes pending documentation or final_submitted, get document counts
+        if (qr.quote && (qr.quote.preliminaryApprovalStatus === 'pending_documentation' ||
+                         qr.quote.preliminaryApprovalStatus === 'final_submitted')) {
           const documentRequests = await storage.getDocumentRequestsByQuote(qr.quote.id);
           const supplierDocuments = await storage.getSupplierDocuments(qr.quote.id);
-          
+
           // Count total documents requested across all document request rows
-          documentsRequested = documentRequests.reduce((sum, dr) => 
+          documentsRequested = documentRequests.reduce((sum, dr) =>
             sum + (dr.requestedDocuments as string[]).length, 0
           );
           documentsUploaded = supplierDocuments.length;
@@ -1097,11 +1106,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
           return res.status(403).json({ message: "Access denied to this quote" });
         }
 
-        // Verify quote has preliminary approval
-        if (quote.preliminaryApprovalStatus !== 'approved') {
+        // Verify quote is awaiting documentation
+        if (quote.preliminaryApprovalStatus !== 'pending_documentation' && quote.preliminaryApprovalStatus !== 'final_submitted') {
           await deleteDocument(file.filename);
           return res.status(403).json({
-            message: "Documents can only be uploaded after preliminary approval"
+            message: "Documents can only be uploaded when documentation is requested (status: pending_documentation)"
           });
         }
 
@@ -1147,6 +1156,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
             // Only send notification if this upload completes ALL documents
             if (allDocumentsComplete) {
+              // Update quote status to final_submitted
+              await storage.updateSupplierQuote(quoteId, {
+                preliminaryApprovalStatus: 'final_submitted',
+              });
+
+              console.log(`✅ All documents complete! Status updated to 'final_submitted'`);
+
               // Get admin/procurement emails
               const adminUsers = await db.select()
                 .from(users)
@@ -1170,7 +1186,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                   totalRequested: allRequestedDocTypes.length,
                 });
 
-                console.log(`✅ All documents complete! Notification sent to ${adminEmails.length} admin(s)`);
+                console.log(`✅ Notification sent to ${adminEmails.length} admin(s)`);
               }
             } else {
               console.log(`📄 Document uploaded. ${allRequestedDocTypes.length - uploadedDocTypes.length} document(s) still pending. No notification sent.`);
@@ -1296,7 +1312,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Admin: Update preliminary approval status for a quote
+  // Admin: Request documentation from supplier (moves status to pending_documentation)
   app.patch('/api/supplier/quotes/:quoteId/preliminary-approval', isAuthenticated, async (req: any, res) => {
     try {
       const userId = getUserId(req);
@@ -1310,14 +1326,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const { quoteId } = req.params;
-      const { status } = req.body; // 'approved' or 'rejected'
+      const { status } = req.body; // 'pending_documentation' or 'rejected'
 
-      if (!['approved', 'rejected'].includes(status)) {
-        return res.status(400).json({ message: "Invalid approval status" });
+      // Map old 'approved' status to new 'pending_documentation' for backwards compatibility
+      let newStatus = status;
+      if (status === 'approved') {
+        newStatus = 'pending_documentation';
+      }
+
+      if (!['pending_documentation', 'rejected'].includes(newStatus)) {
+        return res.status(400).json({ message: "Invalid approval status. Use 'pending_documentation' or 'rejected'" });
       }
 
       const quote = await storage.updateSupplierQuote(quoteId, {
-        preliminaryApprovalStatus: status,
+        preliminaryApprovalStatus: newStatus,
         preliminaryApprovedAt: new Date(),
         preliminaryApprovedBy: userId,
       });

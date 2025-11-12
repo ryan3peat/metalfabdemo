@@ -631,11 +631,11 @@ export class DatabaseStorage implements IStorage {
       .select({ count: sql<number>`count(*)` })
       .from(suppliers);
     
-    // Count pending quotes
+    // Count pending documentation quotes (quotes awaiting document upload from suppliers)
     const [pendingResult] = await db
       .select({ count: sql<number>`count(*)` })
       .from(supplierQuotes)
-      .where(eq(supplierQuotes.preliminaryApprovalStatus, 'pending'));
+      .where(eq(supplierQuotes.preliminaryApprovalStatus, 'pending_documentation'));
     
     // Calculate average response time
     const [avgResult] = await db
