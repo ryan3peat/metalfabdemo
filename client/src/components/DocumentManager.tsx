@@ -21,6 +21,7 @@ interface Document {
   fileSize: string;
   mimeType: string;
   uploadedAt: string;
+  fileExists?: boolean;
 }
 
 interface DocumentRequest {
@@ -228,6 +229,19 @@ export default function DocumentManager({
       const response = await fetch(`/api/documents/${documentId}/download`, {
         credentials: 'include',
       });
+
+      // Handle missing file (410 Gone)
+      if (response.status === 410) {
+        const errorData = await response.json();
+        toast({
+          title: "File No Longer Available",
+          description: errorData.suggestion || "The file was lost. Please re-upload this document.",
+          variant: "destructive",
+        });
+        // Refresh document list to show updated status
+        queryClient.invalidateQueries({ queryKey: ['/api/quotes', quoteId, 'documents'] });
+        return;
+      }
 
       if (!response.ok) {
         throw new Error('Failed to download document');
@@ -477,45 +491,69 @@ export default function DocumentManager({
             </div>
           ) : (
             <div className="space-y-2">
-              {documents.map((doc) => (
-                <div
-                  key={doc.id}
-                  className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors"
-                >
-                  <div className="flex items-center gap-3 flex-1 min-w-0">
-                    <FileText className="h-5 w-5 text-muted-foreground flex-shrink-0" />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium truncate">{doc.fileName}</p>
-                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                        <span>{DOCUMENT_LABELS[doc.documentType]}</span>
-                        <span>•</span>
-                        <span>{formatFileSize(doc.fileSize)}</span>
-                        <span>•</span>
-                        <span>{format(new Date(doc.uploadedAt), "MMM d, yyyy")}</span>
+              {documents.map((doc) => {
+                const isMissing = doc.fileExists === false;
+                return (
+                  <div
+                    key={doc.id}
+                    className={`flex items-center justify-between p-4 border rounded-lg transition-colors ${
+                      isMissing
+                        ? "border-amber-300 bg-amber-50 dark:border-amber-900 dark:bg-amber-950/20"
+                        : "hover:bg-muted/50"
+                    }`}
+                    data-testid={`document-${doc.id}${isMissing ? "-missing" : ""}`}
+                  >
+                    <div className="flex items-center gap-3 flex-1 min-w-0">
+                      {isMissing ? (
+                        <AlertCircle className="h-5 w-5 text-amber-600 flex-shrink-0" />
+                      ) : (
+                        <FileText className="h-5 w-5 text-muted-foreground flex-shrink-0" />
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium truncate">{doc.fileName}</p>
+                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                          <span>{DOCUMENT_LABELS[doc.documentType]}</span>
+                          <span>•</span>
+                          <span>{formatFileSize(doc.fileSize)}</span>
+                          <span>•</span>
+                          <span>{format(new Date(doc.uploadedAt), "MMM d, yyyy")}</span>
+                        </div>
+                        {isMissing && (
+                          <p 
+                            className="text-xs text-amber-700 dark:text-amber-400 mt-1"
+                            data-testid={`missing-file-warning-${doc.id}`}
+                          >
+                            File missing – please re-upload from the Upload Document section
+                          </p>
+                        )}
                       </div>
                     </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => handleDownload(doc.id)}
-                    >
-                      <Download className="h-4 w-4" />
-                    </Button>
-                    {canDelete && (
+                    <div className="flex items-center gap-2">
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => deleteMutation.mutate(doc.id)}
-                        disabled={deleteMutation.isPending}
+                        onClick={() => handleDownload(doc.id)}
+                        disabled={isMissing}
+                        title={isMissing ? "File is missing and cannot be downloaded" : "Download document"}
+                        data-testid={`button-download-${doc.id}`}
                       >
-                        <Trash2 className="h-4 w-4 text-destructive" />
+                        <Download className="h-4 w-4" />
                       </Button>
-                    )}
+                      {canDelete && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => deleteMutation.mutate(doc.id)}
+                          disabled={deleteMutation.isPending}
+                          data-testid={`button-delete-${doc.id}`}
+                        >
+                          <Trash2 className="h-4 w-4 text-destructive" />
+                        </Button>
+                      )}
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </CardContent>

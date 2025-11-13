@@ -1145,7 +1145,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const documents = await storage.getSupplierDocuments(quoteId);
-      res.json(documents);
+      
+      // Add fileExists flag to each document
+      const documentsWithFileStatus = documents.map(doc => ({
+        ...doc,
+        fileExists: documentExists(doc.fileUrl)
+      }));
+      
+      res.json(documentsWithFileStatus);
     } catch (error) {
       console.error("Error fetching supplier documents:", error);
       res.status(500).json({ message: "Failed to fetch documents" });
@@ -1178,7 +1185,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const documents = await storage.getSupplierDocuments(quoteId);
-      res.json(documents);
+      
+      // Add fileExists flag to each document
+      const documentsWithFileStatus = documents.map(doc => ({
+        ...doc,
+        fileExists: documentExists(doc.fileUrl)
+      }));
+      
+      res.json(documentsWithFileStatus);
     } catch (error) {
       console.error("Error fetching quote documents:", error);
       res.status(500).json({ message: "Failed to fetch documents" });
@@ -1369,7 +1383,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Check if file exists
       const filePath = getDocumentPath(document.fileUrl);
       if (!documentExists(document.fileUrl)) {
-        return res.status(404).json({ message: "File not found on server" });
+        console.error(`❌ File missing for document ${documentId}: ${document.fileUrl}`);
+        return res.status(410).json({ 
+          message: "File no longer available on server",
+          documentId: document.id,
+          fileName: document.fileName,
+          documentType: document.documentType,
+          uploadedAt: document.uploadedAt,
+          suggestion: "The file was lost due to server restart. Please re-upload this document."
+        });
       }
 
       // Send file
