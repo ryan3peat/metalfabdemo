@@ -24,14 +24,6 @@ export default function AdminDashboard() {
     select: (data) => data.slice(0, 5),
   });
 
-  // DEBUG: Log stats data
-  console.log('📊 Dashboard Stats:', {
-    stats,
-    isLoading: statsLoading,
-    error: statsError,
-    recentRequests: recentRequests?.length || 0,
-  });
-
   const formatResponseTime = (hours: number | null) => {
     if (hours === null || hours === undefined) return '--';
     
