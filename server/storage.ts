@@ -30,6 +30,13 @@ import {
 import { db } from "./db";
 import { eq, and, sql, desc } from "drizzle-orm";
 
+// Extended QuoteRequest type with counts and status flags
+export type QuoteRequestWithCounts = QuoteRequest & {
+  quotesReceived: number;
+  totalSuppliers: number;
+  hasPendingDocs: boolean;
+};
+
 export interface IStorage {
   // User operations (required for Replit Auth)
   getUser(id: string): Promise<User | undefined>;
@@ -52,7 +59,7 @@ export interface IStorage {
   deleteSupplier(id: string): Promise<void>;
   
   // Quote request operations
-  getQuoteRequests(): Promise<QuoteRequest[]>;
+  getQuoteRequests(): Promise<QuoteRequestWithCounts[]>;
   getQuoteRequest(id: string): Promise<QuoteRequest | undefined>;
   createQuoteRequest(request: InsertQuoteRequest): Promise<QuoteRequest>;
   updateQuoteRequest(id: string, request: Partial<InsertQuoteRequest>): Promise<QuoteRequest | undefined>;
@@ -354,13 +361,14 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Quote request operations
-  async getQuoteRequests(): Promise<QuoteRequest[]> {
-    // Get all quote requests with quote counts
+  async getQuoteRequests(): Promise<QuoteRequestWithCounts[]> {
+    // Get all quote requests with quote counts and preliminary approval status
     const requests = await db
       .select({
         quoteRequest: quoteRequests,
         supplierId: requestSuppliers.supplierId,
         quoteId: supplierQuotes.id,
+        preliminaryApprovalStatus: supplierQuotes.preliminaryApprovalStatus,
       })
       .from(quoteRequests)
       .leftJoin(requestSuppliers, eq(requestSuppliers.requestId, quoteRequests.id))
@@ -378,6 +386,7 @@ export class DatabaseStorage implements IStorage {
       request: QuoteRequest;
       suppliers: Set<string>;
       quotes: Set<string>;
+      hasPendingDocs: boolean;
     }>();
     
     for (const row of requests) {
@@ -387,6 +396,7 @@ export class DatabaseStorage implements IStorage {
           request,
           suppliers: new Set(),
           quotes: new Set(),
+          hasPendingDocs: false,
         });
       }
       
@@ -397,13 +407,18 @@ export class DatabaseStorage implements IStorage {
       if (row.quoteId) {
         mapped.quotes.add(row.quoteId);
       }
+      // Track if any quote has pending documentation
+      if (row.preliminaryApprovalStatus === 'pending_documentation') {
+        mapped.hasPendingDocs = true;
+      }
     }
 
     // Convert to final format with counts
-    return Array.from(requestsMap.values()).map(({ request, suppliers, quotes }) => ({
+    return Array.from(requestsMap.values()).map(({ request, suppliers, quotes, hasPendingDocs }) => ({
       ...request,
       quotesReceived: quotes.size,
       totalSuppliers: suppliers.size,
+      hasPendingDocs,
     }));
   }
 

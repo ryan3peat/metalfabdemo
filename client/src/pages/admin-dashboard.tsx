@@ -101,8 +101,8 @@ export default function AdminDashboard() {
             </Card>
           </Link>
 
-          <Link href="/quote-requests">
-            <Card className="hover-elevate cursor-pointer transition-all">
+          <Link href="/quote-requests?filter=pending-docs">
+            <Card className="hover-elevate cursor-pointer transition-all" data-testid="card-stat-pending-docs">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
                   Pending Docs
@@ -120,7 +120,7 @@ export default function AdminDashboard() {
                       {stats?.pendingQuotes ?? 0}
                     </div>
                     <p className="text-xs text-muted-foreground mt-1">
-                      {stats?.pendingQuotes === 0 ? 'No pending documentation' : 'Awaiting supplier documents'}
+                      {stats?.pendingQuotes === 0 ? 'No pending documentation' : 'Click to view requests'}
                     </p>
                   </>
                 )}

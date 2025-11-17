@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Link } from "wouter";
+import { Link, useLocation, useRoute } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -36,8 +36,9 @@ import { format } from "date-fns";
 import type { QuoteRequest } from "@shared/schema";
 
 type QuoteRequestWithCounts = QuoteRequest & {
-  quotesReceived?: number;
-  totalSuppliers?: number;
+  quotesReceived: number;
+  totalSuppliers: number;
+  hasPendingDocs: boolean;
 };
 
 const statusColors = {
@@ -48,11 +49,33 @@ const statusColors = {
 };
 
 export default function QuoteRequests() {
+  const [location, setLocation] = useLocation();
+  const searchParams = new URLSearchParams(location.split('?')[1] || '');
+  const initialFilter = searchParams.get('filter') || 'all';
+  
   const [searchQuery, setSearchQuery] = useState("");
-  const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [statusFilter, setStatusFilter] = useState<string>(initialFilter);
   const [deleteRequestId, setDeleteRequestId] = useState<string | null>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
+
+  // Update filter when URL changes
+  useEffect(() => {
+    const params = new URLSearchParams(location.split('?')[1] || '');
+    const filter = params.get('filter') || 'all';
+    setStatusFilter(filter);
+  }, [location]);
+
+  // Handle filter change and update URL
+  const handleFilterChange = (newFilter: string) => {
+    setStatusFilter(newFilter);
+    // Update URL to reflect filter choice
+    if (newFilter === 'all') {
+      setLocation('/quote-requests');
+    } else {
+      setLocation(`/quote-requests?filter=${newFilter}`);
+    }
+  };
 
   const { data: requests = [], isLoading } = useQuery<QuoteRequestWithCounts[]>({
     queryKey: ["/api/quote-requests"],
@@ -95,8 +118,13 @@ export default function QuoteRequests() {
       request.requestNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
       request.materialName.toLowerCase().includes(searchQuery.toLowerCase());
 
-    const matchesStatus =
-      statusFilter === "all" || request.status === statusFilter;
+    // Handle status filter including pending-docs special case
+    let matchesStatus = true;
+    if (statusFilter === "pending-docs") {
+      matchesStatus = request.hasPendingDocs === true;
+    } else if (statusFilter !== "all") {
+      matchesStatus = request.status === statusFilter;
+    }
 
     return matchesSearch && matchesStatus;
   });
@@ -133,16 +161,17 @@ export default function QuoteRequests() {
                 />
               </div>
             </div>
-            <Select value={statusFilter} onValueChange={setStatusFilter}>
+            <Select value={statusFilter} onValueChange={handleFilterChange}>
               <SelectTrigger className="w-full md:w-[200px]" data-testid="select-status-filter">
                 <SelectValue placeholder="Filter by status" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All Statuses</SelectItem>
-                <SelectItem value="draft">Draft</SelectItem>
-                <SelectItem value="active">Active</SelectItem>
-                <SelectItem value="closed">Closed</SelectItem>
-                <SelectItem value="cancelled">Cancelled</SelectItem>
+                <SelectItem value="all" data-testid="filter-all">All Statuses</SelectItem>
+                <SelectItem value="pending-docs" data-testid="filter-pending-docs">Pending Docs</SelectItem>
+                <SelectItem value="draft" data-testid="filter-draft">Draft</SelectItem>
+                <SelectItem value="active" data-testid="filter-active">Active</SelectItem>
+                <SelectItem value="closed" data-testid="filter-closed">Closed</SelectItem>
+                <SelectItem value="cancelled" data-testid="filter-cancelled">Cancelled</SelectItem>
               </SelectContent>
             </Select>
           </div>
