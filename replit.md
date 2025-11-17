@@ -49,7 +49,23 @@ The portal adheres to Material Design principles, utilizing the Roboto font fami
 -   **Replit Object Storage:** For file uploads.
 -   **Microsoft Graph API:** Production email service for magic links and RFQ notifications.
 
-## Recent Changes (November 13, 2025)
+## Recent Changes (November 17, 2025)
+-   **In-App Notification System:** Implemented complete notification system for admin/procurement users. When suppliers complete all required documents (status changes to final_submitted), all admin/procurement users receive in-app notifications. Features include:
+    -   **Database Schema:** Added `notifications` table with userId foreign key, message, relatedQuoteId, isRead flag, and timestamp
+    -   **Storage Layer:** Five CRUD methods for notification management (create, get by user, mark as read, mark all as read, get unread count)
+    -   **Backend Logic:** Automatic notification creation when supplier completes all documents - triggers when status changes to final_submitted
+    -   **API Endpoints:** Three secure endpoints (GET /api/notifications, PATCH /api/notifications/:id/read, PATCH /api/notifications/read-all)
+    -   **Security:** Ownership validation prevents cross-user notification access - users can only read/mark their own notifications
+    -   **NotificationBell Component:** Bell icon in top-right header showing unread count badge, dropdown with recent notifications, click-to-navigate to quote detail page, mark as read functionality
+    -   **Role-Based Access:** Bell only visible to admin/procurement users (role-gated in App.tsx)
+    -   **Cache Management:** Uses `refetchQueries` pattern consistent with global `staleTime: Infinity` configuration
+    -   **Real-time Updates:** Polls every 30 seconds for new notifications (refetchInterval: 30000)
+    -   **Material Design:** Follows portal design system with proper spacing, hover states, and accessible UI
+-   **Dashboard Enhancements:** Made all stat tiles clickable with programmatic tab navigation to relevant content sections
+-   **Quote Detail Page Reordering:** Moved document sections above quote submission form for better workflow (documents first, then quote entry)
+-   **Document Upload Security Fix:** Fixed 403 errors by implementing role-aware endpoint selection - admins use /api/quotes/:quoteId/documents, suppliers use /api/supplier/quotes/:quoteId/documents
+
+## Previous Changes (November 13, 2025)
 -   **Enhanced Document Error Handling:** Implemented comprehensive handling for ephemeral filesystem document loss while preserving database records. Added `fileExists` flag to all document API responses (GET `/api/quotes/:quoteId/documents`). Changed download endpoint error from 404 to 410 Gone with actionable JSON response including document metadata and re-upload guidance. Updated DocumentManager UI to visually distinguish missing files with amber borders, AlertCircle icons, disabled download buttons, and clear warning text: "File missing – please re-upload from the Upload Document section". Enhanced download handler to parse 410 responses and display server-provided suggestions via toast notifications. Added comprehensive data-testid attributes for automated testing.
 
 ## Previous Changes (November 12, 2025)
