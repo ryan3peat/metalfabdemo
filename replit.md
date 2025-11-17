@@ -62,6 +62,7 @@ The portal adheres to Material Design principles, utilizing the Roboto font fami
     -   **Real-time Updates:** Polls every 30 seconds for new notifications (refetchInterval: 30000)
     -   **Material Design:** Follows portal design system with proper spacing, hover states, and accessible UI
 -   **Dashboard Enhancements:** Made all stat tiles clickable with programmatic tab navigation to relevant content sections
+-   **Pending Docs Filtering:** Enhanced "Pending Docs" dashboard tile to link to filtered quote requests view. Backend now tracks `hasPendingDocs` flag for each request. Quote Requests page supports URL parameters (`?filter=pending-docs`) with two-way synchronization - URL updates when filter changes, and deep links work correctly. Client-side filtering shows only requests with quotes awaiting supplier documentation.
 -   **Quote Detail Page Reordering:** Moved document sections above quote submission form for better workflow (documents first, then quote entry)
 -   **Document Upload Security Fix:** Fixed 403 errors by implementing role-aware endpoint selection - admins use /api/quotes/:quoteId/documents, suppliers use /api/supplier/quotes/:quoteId/documents
 
