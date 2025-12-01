@@ -45,7 +45,11 @@ export const documentTypeEnum = pgEnum('document_type', [
   'organic'
 ]);
 export const documentRequestStatusEnum = pgEnum('document_request_status', ['pending', 'completed']);
-export const notificationTypeEnum = pgEnum('notification_type', ['documentation_complete']);
+export const notificationTypeEnum = pgEnum('notification_type', [
+  'quote_submitted',        // When a supplier submits a new quote
+  'document_uploaded',      // When a supplier uploads a document
+  'documentation_complete'  // When all requested documents are uploaded
+]);
 
 // ============================================================================
 // TABLE DEFINITIONS

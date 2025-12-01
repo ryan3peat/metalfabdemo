@@ -16,6 +16,7 @@ import authRoutes from "./routes/authRoutes";
 import { upload, validateFileSignature, getDocumentPath, deleteDocument, documentExists } from "./middleware/fileUpload";
 import { generateMagicLinkToken, PASSWORD_SETUP_EXPIRY_MINUTES, getTokenExpiryDate } from "./auth/magicLink";
 import { getBaseUrl } from "./utils/baseUrl";
+import { notificationService } from "./notifications/notificationService";
 
 // Helper function to get user ID from local auth or supplier sessions
 function getUserId(req: any): string | undefined {
@@ -1358,9 +1359,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           uploadedBy: userId,
         });
 
-        // Send notification email to admins/procurement staff ONLY when all documents are complete
+        // Send notifications to admins for document uploads
         try {
-          // Get quote details for email
           const quoteDetails = await storage.getQuoteDetails(quoteId);
 
           if (quoteDetails) {
@@ -1376,11 +1376,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
               new Set(documentRequests.flatMap(dr => dr.requestedDocuments as string[]))
             );
 
-            // Check if ALL requested documents are now uploaded
-            const allDocumentsComplete = allRequestedDocTypes.length > 0 &&
-              allRequestedDocTypes.every(docType => uploadedDocTypes.includes(docType as any));
+            // Calculate remaining documents
+            const remainingDocs = allRequestedDocTypes.filter(
+              docType => !uploadedDocTypes.includes(docType as any)
+            ).length;
 
-            // Only send notification if this upload completes ALL documents
+            // Check if ALL requested documents are now uploaded
+            const allDocumentsComplete = allRequestedDocTypes.length > 0 && remainingDocs === 0;
+
             if (allDocumentsComplete) {
               // Update quote status to final_submitted
               await storage.updateSupplierQuote(quoteId, {
@@ -1392,7 +1395,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
               console.log(`✅ All documents complete! Status updated to 'final_submitted' and document requests marked as 'completed'`);
 
-              // Get admin/procurement users
+              // Get admin/procurement users for email
               const adminUsers = await db.select()
                 .from(users)
                 .where(sql`${users.role} IN ('admin', 'procurement') AND ${users.active} = true`);
@@ -1401,7 +1404,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 .filter(u => u.email)
                 .map(u => u.email as string);
 
-              // Send email notification
+              // Send email notification for completion
               if (adminEmails.length > 0 && quote.requestId) {
                 const quoteDetailUrl = `${getBaseUrl()}/quote-requests/${quote.requestId}/quotes/${quoteId}`;
 
@@ -1419,29 +1422,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 console.log(`✅ Email notification sent to ${adminEmails.length} admin(s)`);
               }
 
-              // Create in-app notifications for all admin/procurement users
-              if (adminUsers.length > 0 && quote.requestId) {
-                const notificationPromises = adminUsers.map(admin => 
-                  storage.createNotification({
-                    userId: admin.id,
-                    type: 'documentation_complete',
-                    title: 'Documentation Complete',
-                    message: `${quoteSupplier.supplierName} has submitted all required documents for ${request.requestNumber}`,
-                    relatedQuoteId: quoteId,
-                    relatedRequestId: quote.requestId!,
-                  })
-                );
-                
-                await Promise.all(notificationPromises);
-                console.log(`✅ In-app notifications created for ${adminUsers.length} admin/procurement user(s)`);
+              // Send real-time notification for documentation complete
+              if (quote.requestId) {
+                await notificationService.notifyAdminsOfDocumentationComplete({
+                  supplierName: quoteSupplier.supplierName,
+                  requestNumber: request.requestNumber,
+                  quoteId,
+                  requestId: quote.requestId,
+                });
               }
             } else {
-              console.log(`📄 Document uploaded. ${allRequestedDocTypes.length - uploadedDocTypes.length} document(s) still pending. No notification sent.`);
+              // Send notification for individual document upload (not completion)
+              if (quote.requestId) {
+                await notificationService.notifyAdminsOfDocumentUpload({
+                  supplierName: quoteSupplier.supplierName,
+                  requestNumber: request.requestNumber,
+                  materialName: request.materialName,
+                  documentType,
+                  quoteId,
+                  requestId: quote.requestId,
+                  remainingDocs,
+                });
+              }
+              console.log(`📄 Document uploaded. ${remainingDocs} document(s) still pending.`);
             }
           }
-        } catch (emailError) {
-          // Don't fail the upload if email fails
-          console.error("Failed to send document upload notification email:", emailError);
+        } catch (notifyError) {
+          // Don't fail the upload if notification fails
+          console.error("Failed to send document upload notification:", notifyError);
         }
 
         res.status(201).json({
@@ -1760,6 +1768,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
         responseSubmittedAt: new Date(),
       });
 
+      // Create notifications for admin/procurement users
+      try {
+        const supplier = await storage.getSupplier(supplierId);
+        const quoteRequest = await storage.getQuoteRequest(requestId);
+        
+        if (supplier && quoteRequest) {
+          await notificationService.notifyAdminsOfQuoteSubmission({
+            supplierName: supplier.supplierName,
+            requestNumber: quoteRequest.requestNumber,
+            materialName: quoteRequest.materialName,
+            quoteId: quote.id,
+            requestId: requestId,
+          });
+        }
+      } catch (notifyError) {
+        console.error("Error sending quote submission notifications:", notifyError);
+      }
+
       res.status(201).json({ message: "Quote submitted successfully", quote });
     } catch (error) {
       console.error("Error submitting quote:", error);
@@ -1773,5 +1799,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   const httpServer = createServer(app);
+  
+  // Initialize WebSocket notification service
+  notificationService.initialize(httpServer);
+
   return httpServer;
 }
