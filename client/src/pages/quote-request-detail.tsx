@@ -108,8 +108,8 @@ export default function QuoteRequestDetail() {
     mutationFn: async (supplierId: string) => {
       setResendingSupplierId(supplierId);
       const response = await apiRequest(
-        'POST',
-        `/api/quote-requests/${requestId}/resend-notification/${supplierId}`
+        `/api/quote-requests/${requestId}/resend-notification/${supplierId}`,
+        'POST'
       );
       return response;
     },
@@ -165,18 +165,17 @@ export default function QuoteRequestDetail() {
   const quotesReceived = suppliers.filter(s => s.quote !== null).length;
   const totalSuppliers = suppliers.length;
 
-  const bestQuote = quotesReceived > 0
-    ? suppliers
-        .filter(s => s.quote)
-        .reduce((min, s) => {
-          const price = parseFloat(s.quote!.pricePerUnit);
-          return price < min ? price : min;
-        }, Infinity)
-    : null;
-
   const sortedQuotes = suppliers
     .filter(s => s.quote !== null)
     .sort((a, b) => parseFloat(a.quote!.pricePerUnit) - parseFloat(b.quote!.pricePerUnit));
+
+  const bestQuoteSupplier = sortedQuotes.length > 0 ? sortedQuotes[0] : null;
+  const bestQuote = bestQuoteSupplier 
+    ? {
+        price: parseFloat(bestQuoteSupplier.quote!.pricePerUnit),
+        currency: bestQuoteSupplier.quote!.currency || 'AUD'
+      }
+    : null;
 
   const pendingSuppliers = suppliers.filter(s => s.quote === null);
 
@@ -258,7 +257,7 @@ export default function QuoteRequestDetail() {
           <CardContent>
             <div className="text-2xl font-bold" data-testid="text-best-quote">
               {bestQuote
-                ? `${bestQuote.toFixed(2)} ${suppliers.find(s => s.quote)?.quote?.currency || 'AUD'}`
+                ? `${bestQuote.price.toFixed(2)} ${bestQuote.currency}`
                 : "—"}
             </div>
             <p className="text-xs text-muted-foreground">
@@ -293,7 +292,7 @@ export default function QuoteRequestDetail() {
                 Quotes Received ({sortedQuotes.length})
               </h4>
               <div className="grid gap-4 md:grid-cols-3">
-                {sortedQuotes.slice(0, 3).map((supplier, index) => (
+                {sortedQuotes.map((supplier, index) => (
                   <Card 
                     key={supplier.id}
                     className={index === 0 ? "border-primary/50 bg-primary/5" : ""}
