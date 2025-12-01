@@ -20,6 +20,9 @@ const router = express.Router();
 const MAGIC_LINK_EXPIRY_MINUTES = 15;
 const MAGIC_LINK_EXPIRY_MS = MAGIC_LINK_EXPIRY_MINUTES * 60 * 1000;
 
+const PASSWORD_RESET_EXPIRY_MINUTES = 60;
+const PASSWORD_RESET_EXPIRY_MS = PASSWORD_RESET_EXPIRY_MINUTES * 60 * 1000;
+
 const ipRateLimiter = createRateLimiter({
   windowMs: 15 * 60 * 1000,
   maxRequests: 10,
@@ -332,6 +335,72 @@ router.post('/setup-password', ipRateLimiter, async (req: Request, res: Response
     console.error('Error in password setup:', error);
     return res.status(500).json({
       message: 'An error occurred during password setup',
+    });
+  }
+});
+
+router.post('/request-password-reset', ipRateLimiter, emailRateLimiter, async (req: Request, res: Response) => {
+  try {
+    const { email } = req.body;
+
+    if (!email || typeof email !== 'string') {
+      return res.status(400).json({ message: 'Email is required' });
+    }
+
+    const normalizedEmail = normalizeEmail(email);
+
+    const user = await storage.getUserByEmail(normalizedEmail);
+
+    if (!user || (user.role !== 'admin' && user.role !== 'procurement')) {
+      return res.status(200).json({
+        message: 'If an account exists with that email, a password reset link has been sent.',
+      });
+    }
+
+    if (!user.active) {
+      return res.status(200).json({
+        message: 'If an account exists with that email, a password reset link has been sent.',
+      });
+    }
+
+    const { token, tokenHash } = generateMagicLinkToken();
+
+    await storage.createMagicLink({
+      email: normalizedEmail,
+      tokenHash,
+      type: 'password_setup',
+      expiresAt: new Date(Date.now() + PASSWORD_RESET_EXPIRY_MS),
+    });
+
+    const baseUrl = getBaseUrl();
+    const resetLink = `${baseUrl}/set-password?token=${token}`;
+
+    const emailResult = await emailService.sendPasswordResetEmail(
+      normalizedEmail,
+      user.firstName || '',
+      user.lastName || '',
+      {
+        resetLink,
+        expiryMinutes: PASSWORD_RESET_EXPIRY_MINUTES,
+      }
+    );
+
+    if (!emailResult.success) {
+      console.error('Failed to send password reset email:', emailResult.error);
+      return res.status(500).json({
+        message: 'Failed to send password reset email. Please try again later.',
+      });
+    }
+
+    await storage.cleanupExpiredMagicLinks();
+
+    return res.status(200).json({
+      message: 'If an account exists with that email, a password reset link has been sent.',
+    });
+  } catch (error) {
+    console.error('Error requesting password reset:', error);
+    return res.status(500).json({
+      message: 'An error occurred. Please try again later.',
     });
   }
 });

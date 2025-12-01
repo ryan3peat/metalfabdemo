@@ -7,6 +7,8 @@ import type { DocumentRequestEmailData } from './documentRequestEmail';
 import { createDocumentRequestEmailTemplate } from './documentRequestEmail';
 import type { PasswordSetupEmailData } from './passwordSetupEmail';
 import { createPasswordSetupEmailTemplate } from './passwordSetupEmail';
+import type { PasswordResetEmailData } from './passwordResetEmail';
+import { createPasswordResetEmailTemplate } from './passwordResetEmail';
 import type { DocumentUploadNotificationData } from './documentUploadNotificationEmail';
 import { createDocumentUploadNotificationTemplate } from './documentUploadNotificationEmail';
 
@@ -235,6 +237,16 @@ export class HybridEmailService implements EmailProvider {
     passwordSetupData: PasswordSetupEmailData
   ): Promise<{ success: boolean; messageId?: string; error?: string }> {
     const { subject, html } = createPasswordSetupEmailTemplate(firstName, lastName, passwordSetupData);
+    return this.sendEmail(email, subject, html);
+  }
+
+  async sendPasswordResetEmail(
+    email: string,
+    firstName: string,
+    lastName: string,
+    passwordResetData: PasswordResetEmailData
+  ): Promise<{ success: boolean; messageId?: string; error?: string }> {
+    const { subject, html } = createPasswordResetEmailTemplate(firstName, lastName, passwordResetData);
     return this.sendEmail(email, subject, html);
   }
 
