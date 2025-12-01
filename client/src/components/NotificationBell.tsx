@@ -1,4 +1,4 @@
-import { Bell } from "lucide-react";
+import { Bell, FileText, Upload, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Popover,
@@ -11,6 +11,8 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useState } from "react";
 import { useLocation } from "wouter";
 import { formatDistanceToNow } from "date-fns";
+import { useAuth } from "@/hooks/useAuth";
+import { useWebSocketNotifications } from "@/hooks/useWebSocketNotifications";
 
 interface Notification {
   id: string;
@@ -29,48 +31,60 @@ interface NotificationsResponse {
   unreadCount: number;
 }
 
+function getNotificationIcon(type: string) {
+  switch (type) {
+    case 'quote_submitted':
+      return <FileText className="h-4 w-4 text-blue-500" />;
+    case 'document_uploaded':
+      return <Upload className="h-4 w-4 text-amber-500" />;
+    case 'documentation_complete':
+      return <CheckCircle2 className="h-4 w-4 text-green-500" />;
+    default:
+      return <Bell className="h-4 w-4 text-muted-foreground" />;
+  }
+}
+
 export function NotificationBell() {
   const [, navigate] = useLocation();
   const [open, setOpen] = useState(false);
+  const { user } = useAuth();
 
-  // Fetch notifications with polling every 30 seconds
+  const userId = user?.id;
+  const isAdmin = user?.role === 'admin' || user?.role === 'procurement';
+
+  useWebSocketNotifications(userId, isAdmin);
+
   const { data } = useQuery<NotificationsResponse>({
     queryKey: ['/api/notifications'],
-    refetchInterval: 30000, // Poll every 30 seconds
+    refetchInterval: 30000,
   });
 
   const notifications = data?.notifications || [];
   const unreadCount = data?.unreadCount || 0;
 
-  // Mark notification as read mutation
   const markAsReadMutation = useMutation({
     mutationFn: async (notificationId: string) => {
       return await apiRequest(`/api/notifications/${notificationId}/read`, "PATCH");
     },
     onSuccess: () => {
-      // Use refetchQueries to force immediate refetch (staleTime: Infinity prevents auto-refetch on invalidate)
       queryClient.refetchQueries({ queryKey: ['/api/notifications'] });
     },
   });
 
-  // Mark all as read mutation
   const markAllAsReadMutation = useMutation({
     mutationFn: async () => {
       return await apiRequest('/api/notifications/read-all', "PATCH");
     },
     onSuccess: () => {
-      // Use refetchQueries to force immediate refetch (staleTime: Infinity prevents auto-refetch on invalidate)
       queryClient.refetchQueries({ queryKey: ['/api/notifications'] });
     },
   });
 
   const handleNotificationClick = (notification: Notification) => {
-    // Mark as read
     if (!notification.isRead) {
       markAsReadMutation.mutate(notification.id);
     }
 
-    // Navigate to quote detail page
     if (notification.relatedRequestId && notification.relatedQuoteId) {
       navigate(`/quote-requests/${notification.relatedRequestId}/quotes/${notification.relatedQuoteId}`);
       setOpen(false);
@@ -135,6 +149,9 @@ export function NotificationBell() {
                   data-testid={`notification-${notification.id}`}
                 >
                   <div className="flex items-start gap-3">
+                    <div className="flex-shrink-0 mt-0.5">
+                      {getNotificationIcon(notification.type)}
+                    </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-1">
                         <p className="font-medium text-sm text-foreground truncate">
