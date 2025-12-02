@@ -23,6 +23,9 @@ export const roleEnum = pgEnum('role', ['admin', 'supplier', 'procurement']);
 export const categoryEnum = pgEnum('category', ['natural', 'synthetic', 'natural_identical']);
 export const formEnum = pgEnum('form', ['liquid', 'powder', 'paste']);
 export const quoteRequestStatusEnum = pgEnum('quote_request_status', ['draft', 'active', 'closed', 'cancelled']);
+export const materialTypeEnum = pgEnum('material_type', ['steel', 'aluminum', 'stainless_steel', 'copper', 'brass', 'bronze', 'titanium', 'other']);
+export const finishEnum = pgEnum('finish', ['painted', 'powder_coated', 'anodized', 'galvanized', 'polished', 'brushed', 'raw', 'other']);
+export const supplierApplicationStatusEnum = pgEnum('supplier_application_status', ['pending', 'approved', 'rejected']);
 export const quoteStatusEnum = pgEnum('quote_status', ['submitted', 'accepted', 'rejected']);
 // Updated quote status enum to reflect the new workflow
 export const preliminaryApprovalStatusEnum = pgEnum('preliminary_approval_status', [
@@ -116,19 +119,21 @@ export const suppliers = pgTable("suppliers", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
-// Quote requests table (with embedded material details)
+// Quote requests table (with embedded material details for metal fabrication)
 export const quoteRequests = pgTable("quote_requests", {
   id: uuid("id").primaryKey().defaultRandom(),
   requestNumber: varchar("request_number", { length: 50 }).notNull().unique(),
   
-  // Embedded material details
+  // Metal fabrication material details
   materialName: varchar("material_name", { length: 255 }).notNull(),
-  casNumber: varchar("cas_number", { length: 50 }),
-  femaNumber: varchar("fema_number", { length: 50 }),
-  materialForm: formEnum("material_form"),
+  materialType: materialTypeEnum("material_type"),
   materialGrade: varchar("material_grade", { length: 100 }),
-  materialOrigin: varchar("material_origin", { length: 255 }),
-  packagingRequirements: text("packaging_requirements"),
+  thickness: numeric("thickness", { precision: 10, scale: 2 }),
+  dimensions: jsonb("dimensions").$type<{ length?: number; width?: number; height?: number }>(),
+  finish: finishEnum("finish"),
+  tolerance: text("tolerance"),
+  weldingRequirements: text("welding_requirements"),
+  surfaceTreatment: text("surface_treatment"),
   materialNotes: text("material_notes"),
   
   // Quote request details
@@ -241,6 +246,61 @@ export const notifications = pgTable("notifications", {
   index("idx_notifications_created_at").on(table.createdAt),
 ]);
 
+// Supplier applications table (for onboarding new suppliers)
+export const supplierApplications = pgTable("supplier_applications", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  
+  // Company Information
+  companyName: varchar("company_name", { length: 255 }).notNull(),
+  abn: varchar("abn", { length: 20 }),
+  address: text("address"),
+  city: varchar("city", { length: 100 }),
+  state: varchar("state", { length: 100 }),
+  postcode: varchar("postcode", { length: 20 }),
+  country: varchar("country", { length: 100 }).default('Australia'),
+  contactPerson: varchar("contact_person", { length: 255 }).notNull(),
+  email: varchar("email", { length: 255 }).notNull(),
+  phone: varchar("phone", { length: 50 }),
+  website: varchar("website", { length: 255 }),
+  
+  // Capabilities
+  servicesOffered: jsonb("services_offered").$type<string[]>().default([]),
+  specializations: jsonb("specializations").$type<string[]>().default([]),
+  equipment: jsonb("equipment").$type<string[]>().default([]),
+  
+  // Materials & Stock
+  materialTypes: jsonb("material_types").$type<string[]>().default([]),
+  stockLevels: text("stock_levels"),
+  certifications: jsonb("certifications").$type<string[]>().default([]),
+  
+  // Quality Management
+  isoCertifications: jsonb("iso_certifications").$type<string[]>().default([]),
+  qualityProcesses: text("quality_processes"),
+  qualityDocumentation: jsonb("quality_documentation").$type<string[]>().default([]),
+  
+  // Welding & Surface Treatment
+  weldingCapabilities: jsonb("welding_capabilities").$type<string[]>().default([]),
+  surfaceTreatmentOptions: jsonb("surface_treatment_options").$type<string[]>().default([]),
+  
+  // Capacity
+  productionCapacity: text("production_capacity"),
+  leadTimes: text("lead_times"),
+  equipmentList: jsonb("equipment_list").$type<string[]>().default([]),
+  
+  // Status
+  status: supplierApplicationStatusEnum("status").notNull().default('pending'),
+  applicationDate: timestamp("application_date").defaultNow().notNull(),
+  reviewDate: timestamp("review_date"),
+  reviewedBy: varchar("reviewed_by").references(() => users.id),
+  reviewNotes: text("review_notes"),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_supplier_applications_status").on(table.status),
+  index("idx_supplier_applications_email").on(table.email),
+]);
+
 // ============================================================================
 // RELATIONS
 // ============================================================================
@@ -330,6 +390,13 @@ export const notificationsRelations = relations(notifications, ({ one }) => ({
   }),
 }));
 
+export const supplierApplicationsRelations = relations(supplierApplications, ({ one }) => ({
+  reviewer: one(users, {
+    fields: [supplierApplications.reviewedBy],
+    references: [users.id],
+  }),
+}));
+
 // ============================================================================
 // TYPE EXPORTS
 // ============================================================================
@@ -360,6 +427,9 @@ export type DocumentRequest = typeof documentRequests.$inferSelect;
 
 export type InsertNotification = typeof notifications.$inferInsert;
 export type Notification = typeof notifications.$inferSelect;
+
+export type InsertSupplierApplication = typeof supplierApplications.$inferInsert;
+export type SupplierApplication = typeof supplierApplications.$inferSelect;
 
 // ============================================================================
 // VALIDATION SCHEMAS
@@ -466,4 +536,29 @@ export const insertDocumentRequestSchema = createInsertSchema(documentRequests, 
   status: true,
   emailSentAt: true,
   createdAt: true,
+});
+
+export const insertSupplierApplicationSchema = createInsertSchema(supplierApplications, {
+  companyName: z.string().min(1, "Company name is required"),
+  contactPerson: z.string().min(1, "Contact person is required"),
+  email: z.string().email("Valid email is required"),
+  servicesOffered: z.array(z.string()).default([]),
+  specializations: z.array(z.string()).default([]),
+  equipment: z.array(z.string()).default([]),
+  materialTypes: z.array(z.string()).default([]),
+  certifications: z.array(z.string()).default([]),
+  isoCertifications: z.array(z.string()).default([]),
+  qualityDocumentation: z.array(z.string()).default([]),
+  weldingCapabilities: z.array(z.string()).default([]),
+  surfaceTreatmentOptions: z.array(z.string()).default([]),
+  equipmentList: z.array(z.string()).default([]),
+}).omit({
+  id: true,
+  status: true,
+  applicationDate: true,
+  reviewDate: true,
+  reviewedBy: true,
+  reviewNotes: true,
+  createdAt: true,
+  updatedAt: true,
 });

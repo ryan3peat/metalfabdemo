@@ -28,8 +28,14 @@ interface QuoteRequestDetail {
     id: string;
     requestNumber: string;
     materialName: string;
-    casNumber?: string;
-    femaNumber?: string;
+    materialType?: string;
+    materialGrade?: string;
+    thickness?: string;
+    dimensions?: { length?: number; width?: number; height?: number };
+    finish?: string;
+    tolerance?: string;
+    weldingRequirements?: string;
+    surfaceTreatment?: string;
     quantityNeeded: string;
     unitOfMeasure: string;
     submitByDate: string;
@@ -244,16 +250,56 @@ export default function SupplierQuoteDetail() {
                 {request.quantityNeeded} {request.unitOfMeasure}
               </div>
             </div>
-            {request.casNumber && (
+            {request.materialType && (
               <div>
-                <div className="text-sm text-muted-foreground mb-1">CAS Number</div>
-                <div className="font-semibold">{request.casNumber}</div>
+                <div className="text-sm text-muted-foreground mb-1">Material Type</div>
+                <div className="font-semibold capitalize">{request.materialType.replace("_", " ")}</div>
               </div>
             )}
-            {request.femaNumber && (
+            {request.materialGrade && (
               <div>
-                <div className="text-sm text-muted-foreground mb-1">FEMA Number</div>
-                <div className="font-semibold">{request.femaNumber}</div>
+                <div className="text-sm text-muted-foreground mb-1">Material Grade</div>
+                <div className="font-semibold">{request.materialGrade}</div>
+              </div>
+            )}
+            {request.thickness && (
+              <div>
+                <div className="text-sm text-muted-foreground mb-1">Thickness</div>
+                <div className="font-semibold">{request.thickness} mm</div>
+              </div>
+            )}
+            {request.finish && (
+              <div>
+                <div className="text-sm text-muted-foreground mb-1">Finish</div>
+                <div className="font-semibold capitalize">{request.finish.replace("_", " ")}</div>
+              </div>
+            )}
+            {request.dimensions && (request.dimensions.length || request.dimensions.width || request.dimensions.height) && (
+              <div>
+                <div className="text-sm text-muted-foreground mb-1">Dimensions</div>
+                <div className="font-semibold">
+                  {request.dimensions.length && `${request.dimensions.length}mm`}
+                  {request.dimensions.width && ` × ${request.dimensions.width}mm`}
+                  {request.dimensions.height && ` × ${request.dimensions.height}mm`}
+                </div>
+              </div>
+            )}
+            {request.tolerance && (
+              <div>
+                <div className="text-sm text-muted-foreground mb-1">Tolerance</div>
+                <div className="font-semibold">{request.tolerance}</div>
+              </div>
+            )}
+            {request.weldingRequirements && (
+              <div>
+                <div className="text-sm text-muted-foreground mb-1">Welding Requirements</div>
+                <div className="font-semibold">{request.weldingRequirements}</div>
+              </div>
+            )}
+            {request.surfaceTreatment && (
+              <div>
+                <div className="text-sm text-muted-foreground mb-1">Surface Treatment</div>
+                <div className="font-semibold">{request.surfaceTreatment}</div>
               </div>
             )}
             <div>
@@ -318,7 +364,7 @@ export default function SupplierQuoteDetail() {
                         Quote Under Review
                       </h3>
                       <p className="text-sm text-muted-foreground">
-                        Your quote is currently being reviewed by Essential Flavours.
+                        Your quote is currently being reviewed by our procurement team.
                         You'll be able to upload documents once additional information is requested.
                         We'll notify you via email when any action is required.
                       </p>

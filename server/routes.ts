@@ -7,7 +7,7 @@ import { sql } from "drizzle-orm";
 import { setupAuth, isAuthenticated } from "./auth";
 import localPassport from "./auth/localAuth";
 import { hashPassword, validatePasswordComplexity } from "./auth/localAuth";
-import { insertUserSchema, insertSupplierSchema, insertSupplierQuoteSchema, insertDocumentRequestSchema } from "@shared/schema";
+import { insertUserSchema, insertSupplierSchema, insertSupplierQuoteSchema, insertDocumentRequestSchema, insertSupplierApplicationSchema } from "@shared/schema";
 import { generateAccessToken, generateQuoteSubmissionUrl } from "./email/emailService";
 import { emailService } from "./email/hybridEmailService";
 import { validateQuoteAccessToken } from "./middleware/tokenAuth";
@@ -18,14 +18,43 @@ import { generateMagicLinkToken, PASSWORD_SETUP_EXPIRY_MINUTES, getTokenExpiryDa
 import { getBaseUrl } from "./utils/baseUrl";
 import { notificationService } from "./notifications/notificationService";
 
+// Demo mode: Mock admin user
+const MOCK_ADMIN_USER = {
+  id: "demo-admin-user",
+  email: "admin@demo.com",
+  firstName: "Demo",
+  lastName: "Admin",
+  role: "admin" as const,
+  active: true,
+  companyName: null,
+  profileImageUrl: null,
+  passwordHash: null,
+  passwordSetAt: null,
+  createdAt: new Date(),
+  updatedAt: new Date(),
+};
+
 // Helper function to get user ID from local auth or supplier sessions
+// Demo mode: Always return demo admin user ID
 function getUserId(req: any): string | undefined {
-  if (req.user?.authType === "local") {
-    return req.user.localAuthUser?.id;
-  } else if (req.user?.authType === "supplier") {
-    return req.user.supplierUser?.id;
+  // In demo mode, always return demo admin user ID
+  return "demo-admin-user";
+}
+
+// Helper function to get current user (returns mock admin in demo mode)
+async function getCurrentUser(req: any) {
+  const userId = getUserId(req);
+  if (!userId) {
+    return undefined;
   }
-  return undefined;
+  
+  // In demo mode, return mock admin user
+  if (userId === "demo-admin-user") {
+    return MOCK_ADMIN_USER;
+  }
+  
+  // Otherwise, fetch from database (for backwards compatibility)
+  return await storage.getUser(userId);
 }
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -59,14 +88,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Set password route (admin only - for initial setup)
   app.post('/api/local/set-password', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = getUserId(req);
-      if (!userId) {
-        return res.status(401).json({ message: "Unauthorized" });
-      }
-
-      const currentUser = await storage.getUser(userId);
+      const currentUser = await getCurrentUser(req);
       
-      if (currentUser?.role !== 'admin') {
+      if (!currentUser || currentUser.role !== 'admin') {
         return res.status(403).json({ message: "Forbidden: Admin access required" });
       }
 
@@ -97,21 +121,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Auth routes
+  // Auth routes - Demo mode: Return mock admin user
   app.get('/api/auth/user', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = getUserId(req);
-      if (!userId) {
-        return res.status(401).json({ message: "Unauthorized" });
-      }
+      // Demo mode: Return mock admin user
+      const mockUser = {
+        id: "demo-admin-user",
+        email: "admin@demo.com",
+        firstName: "Demo",
+        lastName: "Admin",
+        role: "admin" as const,
+        active: true,
+        companyName: null,
+        profileImageUrl: null,
+        passwordHash: null,
+        passwordSetAt: null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
       
-      const user = await storage.getUser(userId);
-      
-      if (!user) {
-        return res.status(404).json({ message: "User not found" });
-      }
-      
-      res.json(user);
+      res.json(mockUser);
     } catch (error) {
       console.error("Error fetching user:", error);
       res.status(500).json({ message: "Failed to fetch user" });
@@ -121,14 +150,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // User management routes (admin only)
   app.get('/api/users', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = getUserId(req);
-      if (!userId) {
-        return res.status(401).json({ message: "Unauthorized" });
-      }
-
-      const currentUser = await storage.getUser(userId);
+      const currentUser = await getCurrentUser(req);
       
-      if (currentUser?.role !== 'admin' && currentUser?.role !== 'procurement') {
+      if (!currentUser || (currentUser.role !== 'admin' && currentUser.role !== 'procurement')) {
         return res.status(403).json({ message: "Forbidden: Admin access required" });
       }
 
@@ -142,14 +166,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.patch('/api/users/:id/role', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = getUserId(req);
-      if (!userId) {
-        return res.status(401).json({ message: "Unauthorized" });
-      }
-
-      const currentUser = await storage.getUser(userId);
+      const currentUser = await getCurrentUser(req);
       
-      if (currentUser?.role !== 'admin' && currentUser?.role !== 'procurement') {
+      if (!currentUser || (currentUser.role !== 'admin' && currentUser.role !== 'procurement')) {
         return res.status(403).json({ message: "Forbidden: Admin or procurement access required" });
       }
 
@@ -174,14 +193,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.patch('/api/users/:id/status', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = getUserId(req);
-      if (!userId) {
-        return res.status(401).json({ message: "Unauthorized" });
-      }
-
-      const currentUser = await storage.getUser(userId);
+      const currentUser = await getCurrentUser(req);
       
-      if (currentUser?.role !== 'admin' && currentUser?.role !== 'procurement') {
+      if (!currentUser || (currentUser.role !== 'admin' && currentUser.role !== 'procurement')) {
         return res.status(403).json({ message: "Forbidden: Admin or procurement access required" });
       }
 
@@ -206,14 +220,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post('/api/users', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = getUserId(req);
-      if (!userId) {
-        return res.status(401).json({ message: "Unauthorized" });
-      }
-
-      const currentUser = await storage.getUser(userId);
+      const currentUser = await getCurrentUser(req);
       
-      if (currentUser?.role !== 'admin' && currentUser?.role !== 'procurement') {
+      if (!currentUser || (currentUser.role !== 'admin' && currentUser.role !== 'procurement')) {
         return res.status(403).json({ message: "Forbidden: Admin or procurement access required" });
       }
 
@@ -278,14 +287,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.delete('/api/users/:id', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = getUserId(req);
-      if (!userId) {
-        return res.status(401).json({ message: "Unauthorized" });
-      }
-
-      const currentUser = await storage.getUser(userId);
+      const currentUser = await getCurrentUser(req);
       
-      if (currentUser?.role !== 'admin' && currentUser?.role !== 'procurement') {
+      if (!currentUser || (currentUser.role !== 'admin' && currentUser.role !== 'procurement')) {
         return res.status(403).json({ message: "Forbidden: Admin or procurement access required" });
       }
 
@@ -313,16 +317,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Supplier management routes (admin/procurement only)
   app.get('/api/suppliers', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = getUserId(req);
-      if (!userId) {
-        return res.status(401).json({ message: "Unauthorized" });
-      }
-
-      const currentUser = await storage.getUser(userId);
-      console.log('[DEBUG /api/suppliers] userId:', userId, 'currentUser:', JSON.stringify(currentUser));
+      const currentUser = await getCurrentUser(req);
       
-      if (currentUser?.role !== 'admin' && currentUser?.role !== 'procurement') {
-        console.log('[DEBUG /api/suppliers] Access denied - role:', currentUser?.role);
+      if (!currentUser || (currentUser.role !== 'admin' && currentUser.role !== 'procurement')) {
         return res.status(403).json({ message: "Forbidden: Admin or procurement access required" });
       }
 
@@ -336,14 +333,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get('/api/suppliers/:id', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = getUserId(req);
-      if (!userId) {
-        return res.status(401).json({ message: "Unauthorized" });
-      }
-
-      const currentUser = await storage.getUser(userId);
+      const currentUser = await getCurrentUser(req);
       
-      if (currentUser?.role !== 'admin' && currentUser?.role !== 'procurement') {
+      if (!currentUser || (currentUser.role !== 'admin' && currentUser.role !== 'procurement')) {
         return res.status(403).json({ message: "Forbidden: Admin or procurement access required" });
       }
 
@@ -364,13 +356,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post('/api/suppliers', isAuthenticated, async (req: any, res) => {
     try {
       const userId = getUserId(req);
-      if (!userId) {
-        return res.status(401).json({ message: "Unauthorized" });
-      }
-
-      const currentUser = await storage.getUser(userId);
+      const currentUser = await getCurrentUser(req);
       
-      if (currentUser?.role !== 'admin' && currentUser?.role !== 'procurement') {
+      if (!currentUser || (currentUser.role !== 'admin' && currentUser.role !== 'procurement')) {
         return res.status(403).json({ message: "Forbidden: Admin or procurement access required" });
       }
 
@@ -398,14 +386,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.patch('/api/suppliers/:id', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = getUserId(req);
-      if (!userId) {
-        return res.status(401).json({ message: "Unauthorized" });
-      }
-
-      const currentUser = await storage.getUser(userId);
+      const currentUser = await getCurrentUser(req);
       
-      if (currentUser?.role !== 'admin' && currentUser?.role !== 'procurement') {
+      if (!currentUser || (currentUser.role !== 'admin' && currentUser.role !== 'procurement')) {
         return res.status(403).json({ message: "Forbidden: Admin or procurement access required" });
       }
 
@@ -435,14 +418,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.delete('/api/suppliers/:id', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = getUserId(req);
-      if (!userId) {
-        return res.status(401).json({ message: "Unauthorized" });
-      }
-
-      const currentUser = await storage.getUser(userId);
+      const currentUser = await getCurrentUser(req);
       
-      if (currentUser?.role !== 'admin' && currentUser?.role !== 'procurement') {
+      if (!currentUser || (currentUser.role !== 'admin' && currentUser.role !== 'procurement')) {
         return res.status(403).json({ message: "Forbidden: Admin or procurement access required" });
       }
 
@@ -465,14 +443,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Quote Request Routes (admin/procurement only)
   app.get('/api/quote-requests', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = getUserId(req);
-      if (!userId) {
-        return res.status(401).json({ message: "Unauthorized" });
-      }
-
-      const currentUser = await storage.getUser(userId);
+      const currentUser = await getCurrentUser(req);
       
-      if (currentUser?.role !== 'admin' && currentUser?.role !== 'procurement') {
+      if (!currentUser || (currentUser.role !== 'admin' && currentUser.role !== 'procurement')) {
         return res.status(403).json({ message: "Forbidden: Admin or procurement access required" });
       }
 
@@ -486,14 +459,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get('/api/quote-requests/:id', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = getUserId(req);
-      if (!userId) {
-        return res.status(401).json({ message: "Unauthorized" });
-      }
+      const currentUser = await getCurrentUser(req);
 
-      const currentUser = await storage.getUser(userId);
-
-      if (currentUser?.role !== 'admin' && currentUser?.role !== 'procurement') {
+      if (!currentUser || (currentUser.role !== 'admin' && currentUser.role !== 'procurement')) {
         return res.status(403).json({ message: "Forbidden: Admin or procurement access required" });
       }
 
@@ -514,14 +482,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get individual quote details (admin/procurement only)
   app.get('/api/quotes/:quoteId', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = getUserId(req);
-      if (!userId) {
-        return res.status(401).json({ message: "Unauthorized" });
-      }
+      const currentUser = await getCurrentUser(req);
 
-      const currentUser = await storage.getUser(userId);
-
-      if (currentUser?.role !== 'admin' && currentUser?.role !== 'procurement') {
+      if (!currentUser || (currentUser.role !== 'admin' && currentUser.role !== 'procurement')) {
         return res.status(403).json({ message: "Forbidden: Admin or procurement access required" });
       }
 
@@ -543,13 +506,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post('/api/quotes/:quoteId/request-documents', isAuthenticated, async (req: any, res) => {
     try {
       const userId = getUserId(req);
-      if (!userId) {
-        return res.status(401).json({ message: "Unauthorized" });
-      }
+      const currentUser = await getCurrentUser(req);
 
-      const currentUser = await storage.getUser(userId);
-
-      if (currentUser?.role !== 'admin' && currentUser?.role !== 'procurement') {
+      if (!currentUser || (currentUser.role !== 'admin' && currentUser.role !== 'procurement')) {
         return res.status(403).json({ message: "Forbidden: Admin or procurement access required" });
       }
 
@@ -653,12 +612,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post('/api/quote-requests', isAuthenticated, async (req: any, res) => {
     try {
       const userId = getUserId(req);
-      if (!userId) {
-        return res.status(401).json({ message: "Unauthorized" });
-      }
-
-      const currentUser = await storage.getUser(userId);
-      if (currentUser?.role !== 'admin' && currentUser?.role !== 'procurement') {
+      const currentUser = await getCurrentUser(req);
+      if (!currentUser || (currentUser.role !== 'admin' && currentUser.role !== 'procurement')) {
         return res.status(403).json({ message: "Forbidden: Admin or procurement access required" });
       }
 
@@ -724,8 +679,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
               {
                 requestNumber: quoteRequest.requestNumber,
                 materialName: quoteRequest.materialName,
-                casNumber: quoteRequest.casNumber || undefined,
-                femaNumber: quoteRequest.femaNumber || undefined,
+                materialType: quoteRequest.materialType || undefined,
+                materialGrade: quoteRequest.materialGrade || undefined,
+                thickness: quoteRequest.thickness || undefined,
+                finish: quoteRequest.finish || undefined,
                 quantityNeeded: quoteRequest.quantityNeeded,
                 unitOfMeasure: quoteRequest.unitOfMeasure,
                 submitByDate: quoteRequest.submitByDate,
@@ -760,13 +717,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post('/api/quote-requests/draft', isAuthenticated, async (req: any, res) => {
     try {
       const userId = getUserId(req);
-      if (!userId) {
-        return res.status(401).json({ message: "Unauthorized" });
-      }
-
-      const currentUser = await storage.getUser(userId);
+      const currentUser = await getCurrentUser(req);
       
-      if (currentUser?.role !== 'admin' && currentUser?.role !== 'procurement') {
+      if (!currentUser || (currentUser.role !== 'admin' && currentUser.role !== 'procurement')) {
         return res.status(403).json({ message: "Forbidden: Admin or procurement access required" });
       }
 
@@ -813,14 +766,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.patch('/api/quote-requests/:id', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = getUserId(req);
-      if (!userId) {
-        return res.status(401).json({ message: "Unauthorized" });
-      }
-
-      const currentUser = await storage.getUser(userId);
+      const currentUser = await getCurrentUser(req);
       
-      if (currentUser?.role !== 'admin' && currentUser?.role !== 'procurement') {
+      if (!currentUser || (currentUser.role !== 'admin' && currentUser.role !== 'procurement')) {
         return res.status(403).json({ message: "Forbidden: Admin or procurement access required" });
       }
 
@@ -843,14 +791,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Delete quote request (admin/procurement only)
   app.delete('/api/quote-requests/:id', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = getUserId(req);
-      if (!userId) {
-        return res.status(401).json({ message: "Unauthorized" });
-      }
+      const currentUser = await getCurrentUser(req);
 
-      const currentUser = await storage.getUser(userId);
-
-      if (currentUser?.role !== 'admin' && currentUser?.role !== 'procurement') {
+      if (!currentUser || (currentUser.role !== 'admin' && currentUser.role !== 'procurement')) {
         return res.status(403).json({ message: "Forbidden: Admin or procurement access required" });
       }
 
@@ -891,14 +834,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Resend RFQ notification to a specific supplier (admin/procurement only)
   app.post('/api/quote-requests/:id/resend-notification/:supplierId', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = getUserId(req);
-      if (!userId) {
-        return res.status(401).json({ message: "Unauthorized" });
-      }
+      const currentUser = await getCurrentUser(req);
 
-      const currentUser = await storage.getUser(userId);
-
-      if (currentUser?.role !== 'admin' && currentUser?.role !== 'procurement') {
+      if (!currentUser || (currentUser.role !== 'admin' && currentUser.role !== 'procurement')) {
         return res.status(403).json({ message: "Forbidden: Admin or procurement access required" });
       }
 
@@ -952,8 +890,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         {
           requestNumber: quoteRequest.requestNumber,
           materialName: quoteRequest.materialName,
-          casNumber: quoteRequest.casNumber || undefined,
-          femaNumber: quoteRequest.femaNumber || undefined,
+          materialType: quoteRequest.materialType || undefined,
+          materialGrade: quoteRequest.materialGrade || undefined,
+          thickness: quoteRequest.thickness || undefined,
+          finish: quoteRequest.finish || undefined,
           quantityNeeded: quoteRequest.quantityNeeded,
           unitOfMeasure: quoteRequest.unitOfMeasure,
           submitByDate: quoteRequest.submitByDate,
@@ -990,14 +930,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Admin dashboard statistics
   app.get('/api/admin/dashboard', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = getUserId(req);
-      if (!userId) {
-        return res.status(401).json({ message: "Unauthorized" });
-      }
-
-      const currentUser = await storage.getUser(userId);
+      const currentUser = await getCurrentUser(req);
       
-      if (currentUser?.role !== 'admin' && currentUser?.role !== 'procurement') {
+      if (!currentUser || (currentUser.role !== 'admin' && currentUser.role !== 'procurement')) {
         return res.status(403).json({ message: "Forbidden: Admin or procurement access required" });
       }
 
@@ -1280,7 +1215,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Check access permissions
-      const currentUser = await storage.getUser(userId);
+      const currentUser = await getCurrentUser(req);
       const isAdmin = currentUser?.role === 'admin' || currentUser?.role === 'procurement';
       const isQuoteOwner = req.supplier && req.supplier.id === quote.supplierId;
 
@@ -1501,7 +1436,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Check if user has access (admin/procurement or quote owner)
-      const currentUser = await storage.getUser(userId);
+      const currentUser = await getCurrentUser(req);
       const isAdmin = currentUser?.role === 'admin' || currentUser?.role === 'procurement';
       const isQuoteOwner = req.supplier && req.supplier.id === quote.supplierId;
 
@@ -1648,12 +1583,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.patch('/api/supplier/quotes/:quoteId/preliminary-approval', isAuthenticated, async (req: any, res) => {
     try {
       const userId = getUserId(req);
-      if (!userId) {
-        return res.status(401).json({ message: "Unauthorized" });
-      }
-
-      const currentUser = await storage.getUser(userId);
-      if (currentUser?.role !== 'admin' && currentUser?.role !== 'procurement') {
+      const currentUser = await getCurrentUser(req);
+      if (!currentUser || (currentUser.role !== 'admin' && currentUser.role !== 'procurement')) {
         return res.status(403).json({ message: "Forbidden: Admin or procurement access required" });
       }
 
@@ -1680,6 +1611,161 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error updating preliminary approval:", error);
       res.status(500).json({ message: "Failed to update approval status" });
+    }
+  });
+
+  // ============================================================================
+  // SUPPLIER APPLICATION ROUTES
+  // ============================================================================
+
+  // Submit a supplier application (public - no auth required in demo mode)
+  app.post('/api/supplier-applications', isAuthenticated, async (req: any, res) => {
+    try {
+      // Validate request body
+      const validationResult = insertSupplierApplicationSchema.safeParse(req.body);
+      if (!validationResult.success) {
+        return res.status(400).json({
+          message: "Validation failed",
+          errors: validationResult.error.errors
+        });
+      }
+
+      const application = await storage.createSupplierApplication(validationResult.data);
+      res.status(201).json(application);
+    } catch (error) {
+      console.error("Error creating supplier application:", error);
+      res.status(500).json({ message: "Failed to submit application" });
+    }
+  });
+
+  // List all supplier applications (admin/procurement only)
+  app.get('/api/supplier-applications', isAuthenticated, async (req: any, res) => {
+    try {
+      const currentUser = await getCurrentUser(req);
+      
+      if (!currentUser || (currentUser.role !== 'admin' && currentUser.role !== 'procurement')) {
+        return res.status(403).json({ message: "Forbidden: Admin or procurement access required" });
+      }
+
+      const applications = await storage.getSupplierApplications();
+      res.json(applications);
+    } catch (error) {
+      console.error("Error fetching supplier applications:", error);
+      res.status(500).json({ message: "Failed to fetch applications" });
+    }
+  });
+
+  // Get specific supplier application details (admin/procurement only)
+  app.get('/api/supplier-applications/:id', isAuthenticated, async (req: any, res) => {
+    try {
+      const currentUser = await getCurrentUser(req);
+      
+      if (!currentUser || (currentUser.role !== 'admin' && currentUser.role !== 'procurement')) {
+        return res.status(403).json({ message: "Forbidden: Admin or procurement access required" });
+      }
+
+      const { id } = req.params;
+      const application = await storage.getSupplierApplication(id);
+      
+      if (!application) {
+        return res.status(404).json({ message: "Application not found" });
+      }
+
+      res.json(application);
+    } catch (error) {
+      console.error("Error fetching supplier application:", error);
+      res.status(500).json({ message: "Failed to fetch application" });
+    }
+  });
+
+  // Update application status (approve/reject) (admin/procurement only)
+  app.patch('/api/supplier-applications/:id/status', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserId(req);
+      const currentUser = await getCurrentUser(req);
+      
+      if (!currentUser || (currentUser.role !== 'admin' && currentUser.role !== 'procurement')) {
+        return res.status(403).json({ message: "Forbidden: Admin or procurement access required" });
+      }
+
+      const { id } = req.params;
+      const { status, reviewNotes } = req.body;
+
+      if (!['pending', 'approved', 'rejected'].includes(status)) {
+        return res.status(400).json({ message: "Invalid status. Use 'pending', 'approved', or 'rejected'" });
+      }
+
+      const application = await storage.updateSupplierApplicationStatus(
+        id,
+        status,
+        userId,
+        reviewNotes
+      );
+
+      if (!application) {
+        return res.status(404).json({ message: "Application not found" });
+      }
+
+      res.json(application);
+    } catch (error) {
+      console.error("Error updating application status:", error);
+      res.status(500).json({ message: "Failed to update application status" });
+    }
+  });
+
+  // Convert approved application to supplier (admin/procurement only)
+  app.post('/api/supplier-applications/:id/approve', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getUserId(req);
+      const currentUser = await getCurrentUser(req);
+      
+      if (!currentUser || (currentUser.role !== 'admin' && currentUser.role !== 'procurement')) {
+        return res.status(403).json({ message: "Forbidden: Admin or procurement access required" });
+      }
+
+      const { id } = req.params;
+      const application = await storage.getSupplierApplication(id);
+
+      if (!application) {
+        return res.status(404).json({ message: "Application not found" });
+      }
+
+      if (application.status !== 'approved') {
+        return res.status(400).json({ message: "Application must be approved before converting to supplier" });
+      }
+
+      // Check if supplier with this email already exists
+      const existingSupplier = await storage.getSupplierByEmail(application.email);
+      if (existingSupplier) {
+        return res.status(409).json({ message: "A supplier with this email already exists" });
+      }
+
+      // Convert application to supplier
+      const supplierData: InsertSupplier = {
+        supplierName: application.companyName,
+        contactPerson: application.contactPerson,
+        email: application.email,
+        email2: null,
+        phone: application.phone || null,
+        location: application.address ? `${application.address}, ${application.city || ''}, ${application.state || ''} ${application.postcode || ''}`.trim() : null,
+        moq: null,
+        leadTimes: application.leadTimes || null,
+        paymentTerms: null,
+        certifications: application.certifications || [],
+        active: true,
+        createdBy: userId,
+      };
+
+      const supplier = await storage.createSupplier(supplierData);
+
+      res.json({
+        message: "Supplier created successfully",
+        supplier,
+        application,
+      });
+    } catch (error) {
+      console.error("Error converting application to supplier:", error);
+      res.status(500).json({ message: "Failed to convert application to supplier" });
     }
   });
 
@@ -1711,8 +1797,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
           id: request.id,
           requestNumber: request.requestNumber,
           materialName: request.materialName,
-          casNumber: request.casNumber,
-          femaNumber: request.femaNumber,
+          materialType: request.materialType,
+          materialGrade: request.materialGrade,
+          thickness: request.thickness,
+          dimensions: request.dimensions,
+          finish: request.finish,
+          tolerance: request.tolerance,
+          weldingRequirements: request.weldingRequirements,
+          surfaceTreatment: request.surfaceTreatment,
           quantityNeeded: request.quantityNeeded,
           unitOfMeasure: request.unitOfMeasure,
           submitByDate: request.submitByDate,
@@ -1795,7 +1887,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Health check
   app.get("/api/health", (req, res) => {
-    res.json({ status: "ok", message: "Essential Flavours Supplier Portal API" });
+    res.json({ status: "ok", message: "Supplier Portal API - Demo Mode" });
   });
 
   const httpServer = createServer(app);

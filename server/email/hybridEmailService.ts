@@ -1,5 +1,5 @@
-import { MicrosoftGraphEmailService } from './microsoftGraphEmailService';
 import { MockEmailService } from './emailService';
+import type { MicrosoftGraphEmailService as MicrosoftGraphEmailServiceType } from './microsoftGraphEmailService';
 import type { EmailRecipient, RFQEmailData } from './emailService';
 import type { MagicLinkEmailData } from './magicLinkEmail';
 import { createMagicLinkEmailTemplate } from './magicLinkEmail';
@@ -35,33 +35,35 @@ export class HybridEmailService implements EmailProvider {
   private fallbackProvider: EmailProvider | null = null;
   private providerName: string;
   private allowMockFallback: boolean;
+  private emailProvider: string;
+  private graphProviderInitialized: boolean = false;
 
   constructor() {
-    const emailProvider = process.env.EMAIL_PROVIDER || 'graph';
+    this.emailProvider = process.env.EMAIL_PROVIDER || 'mock';
     this.allowMockFallback = process.env.ALLOW_MOCK_FALLBACK === 'true';
-    this.providerName = emailProvider;
+    this.providerName = this.emailProvider;
 
     console.log(`\n📧 Email Service Configuration:`);
-    console.log(`   Provider: ${emailProvider}`);
+    console.log(`   Provider: ${this.emailProvider}`);
     console.log(`   Allow Mock Fallback: ${this.allowMockFallback}`);
 
     try {
-      if (emailProvider === 'graph') {
-        this.primaryProvider = new MicrosoftGraphEmailService();
-        console.log(`   ✅ Microsoft Graph email service initialized`);
-      } else if (emailProvider === 'mock') {
+      if (this.emailProvider === 'mock') {
         this.primaryProvider = new MockEmailService();
         console.log(`   ✅ Mock email service initialized`);
+      } else if (this.emailProvider === 'graph') {
+        // Graph provider will be initialized lazily on first use
+        console.log(`   ⏳ Microsoft Graph email service will be initialized on first use`);
       } else {
-        throw new Error(`Invalid EMAIL_PROVIDER: ${emailProvider}. Must be 'graph' or 'mock'`);
+        throw new Error(`Invalid EMAIL_PROVIDER: ${this.emailProvider}. Must be 'graph' or 'mock'`);
       }
 
-      if (this.allowMockFallback && emailProvider !== 'mock') {
+      if (this.allowMockFallback && this.emailProvider !== 'mock') {
         this.fallbackProvider = new MockEmailService();
         console.log(`   ✅ Mock email fallback enabled`);
       }
     } catch (error) {
-      console.error(`   ❌ Failed to initialize ${emailProvider} email provider:`, error);
+      console.error(`   ❌ Failed to initialize ${this.emailProvider} email provider:`, error);
       
       if (this.allowMockFallback) {
         console.log(`   ⚠️  Falling back to mock email service`);
@@ -77,10 +79,36 @@ export class HybridEmailService implements EmailProvider {
     console.log(`\n`);
   }
 
+  private async ensureGraphProviderInitialized(): Promise<void> {
+    if (this.graphProviderInitialized || this.emailProvider !== 'graph') {
+      return;
+    }
+
+    try {
+      // Dynamic import - only load when needed to avoid requiring Azure credentials
+      const MicrosoftGraphEmailServiceModule = await import('./microsoftGraphEmailService');
+      this.primaryProvider = new MicrosoftGraphEmailServiceModule.MicrosoftGraphEmailService();
+      this.graphProviderInitialized = true;
+      console.log(`   ✅ Microsoft Graph email service initialized`);
+    } catch (error) {
+      console.error(`   ❌ Failed to initialize Microsoft Graph email provider:`, error);
+      
+      if (this.allowMockFallback) {
+        console.log(`   ⚠️  Falling back to mock email service`);
+        this.primaryProvider = new MockEmailService();
+        this.providerName = 'mock (fallback)';
+      } else {
+        throw error;
+      }
+    }
+  }
+
   async sendRFQNotification(
     recipient: EmailRecipient,
     rfqData: RFQEmailData
   ): Promise<{ success: boolean; messageId?: string; error?: string }> {
+    await this.ensureGraphProviderInitialized();
+    
     if (!this.primaryProvider) {
       return {
         success: false,
@@ -120,6 +148,8 @@ export class HybridEmailService implements EmailProvider {
     recipients: EmailRecipient[],
     rfqData: RFQEmailData[]
   ): Promise<{ sent: number; failed: number; results: any[] }> {
+    await this.ensureGraphProviderInitialized();
+    
     if (!this.primaryProvider) {
       return {
         sent: 0,
@@ -181,6 +211,8 @@ export class HybridEmailService implements EmailProvider {
     subject: string,
     html: string
   ): Promise<{ success: boolean; messageId?: string; error?: string }> {
+    await this.ensureGraphProviderInitialized();
+    
     if (!this.primaryProvider) {
       return {
         success: false,

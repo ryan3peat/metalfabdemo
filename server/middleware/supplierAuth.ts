@@ -26,31 +26,38 @@ function getUserEmail(req: any): string | undefined {
 }
 
 // Middleware to verify user is a registered supplier with quote requests
+// Demo mode: Bypass checks and use first available supplier or create mock supplier
 export async function requireSupplierAccess(req: any, res: Response, next: NextFunction) {
   try {
-    const userId = getUserId(req);
-    const userEmail = getUserEmail(req);
-
-    if (!userId || !userEmail) {
-      return res.status(401).json({ message: "Unauthorized: Please log in" });
-    }
-
-    // Check if user email matches any supplier
-    const supplier = await storage.getSupplierByEmail(userEmail);
+    // Demo mode: Bypass authentication checks
+    const userId = "demo-admin-user"; // Use demo user ID
     
-    if (!supplier) {
-      return res.status(403).json({ 
-        message: "Access denied: You are not registered as a supplier in our system" 
-      });
-    }
-
-    // Check if supplier has received at least one quote request
-    const quoteRequests = await storage.getSupplierQuoteRequests(supplier.id);
+    // In demo mode, get the first supplier from database, or create a mock one
+    const allSuppliers = await storage.getSuppliers();
+    let supplier;
     
-    if (quoteRequests.length === 0) {
-      return res.status(403).json({ 
-        message: "Access denied: No quote requests found for your account" 
-      });
+    if (allSuppliers.length > 0) {
+      // Use the first supplier in demo mode
+      supplier = allSuppliers[0];
+    } else {
+      // Create a mock supplier if none exist (for demo purposes)
+      supplier = {
+        id: "demo-supplier-id",
+        supplierName: "Demo Metal Fabrication Supplier",
+        contactPerson: "Demo Contact",
+        email: "supplier@demo.com",
+        email2: null,
+        phone: null,
+        location: null,
+        moq: null,
+        leadTimes: null,
+        paymentTerms: null,
+        certifications: [],
+        active: true,
+        createdBy: userId,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
     }
 
     // Attach supplier info to request for downstream handlers

@@ -8,6 +8,7 @@ import {
   documentRequests,
   magicLinks,
   notifications,
+  supplierApplications,
   type User,
   type UpsertUser,
   type Supplier,
@@ -26,6 +27,8 @@ import {
   type InsertMagicLink,
   type Notification,
   type InsertNotification,
+  type SupplierApplication,
+  type InsertSupplierApplication,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, sql, desc } from "drizzle-orm";
@@ -139,6 +142,12 @@ export interface IStorage {
   getUnreadNotificationCount(userId: string): Promise<number>;
   markNotificationAsRead(id: string): Promise<void>;
   markAllNotificationsAsRead(userId: string): Promise<void>;
+
+  // Supplier application operations
+  createSupplierApplication(application: InsertSupplierApplication): Promise<SupplierApplication>;
+  getSupplierApplications(): Promise<SupplierApplication[]>;
+  getSupplierApplication(id: string): Promise<SupplierApplication | undefined>;
+  updateSupplierApplicationStatus(id: string, status: 'pending' | 'approved' | 'rejected', reviewedBy: string, reviewNotes?: string): Promise<SupplierApplication | undefined>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -837,6 +846,47 @@ export class DatabaseStorage implements IStorage {
         eq(notifications.userId, userId),
         eq(notifications.isRead, false)
       ));
+  }
+
+  // Supplier application operations
+  async createSupplierApplication(application: InsertSupplierApplication): Promise<SupplierApplication> {
+    const [created] = await db.insert(supplierApplications).values(application).returning();
+    return created;
+  }
+
+  async getSupplierApplications(): Promise<SupplierApplication[]> {
+    return await db
+      .select()
+      .from(supplierApplications)
+      .orderBy(desc(supplierApplications.applicationDate));
+  }
+
+  async getSupplierApplication(id: string): Promise<SupplierApplication | undefined> {
+    const [application] = await db
+      .select()
+      .from(supplierApplications)
+      .where(eq(supplierApplications.id, id));
+    return application;
+  }
+
+  async updateSupplierApplicationStatus(
+    id: string,
+    status: 'pending' | 'approved' | 'rejected',
+    reviewedBy: string,
+    reviewNotes?: string
+  ): Promise<SupplierApplication | undefined> {
+    const [updated] = await db
+      .update(supplierApplications)
+      .set({
+        status,
+        reviewDate: new Date(),
+        reviewedBy,
+        reviewNotes: reviewNotes || null,
+        updatedAt: new Date(),
+      })
+      .where(eq(supplierApplications.id, id))
+      .returning();
+    return updated;
   }
 }
 

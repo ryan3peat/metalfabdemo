@@ -283,4 +283,5 @@ export class MicrosoftGraphEmailService {
   }
 }
 
-export const microsoftGraphEmailService = new MicrosoftGraphEmailService();
+// Singleton export removed - use HybridEmailService instead
+// export const microsoftGraphEmailService = new MicrosoftGraphEmailService();

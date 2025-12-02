@@ -199,7 +199,7 @@ export default function SupplierDashboard() {
             Supplier Portal
           </h1>
           <p className="text-muted-foreground mt-2" data-testid="text-welcome-message">
-            Welcome back! Here's an overview of your quote requests from Essential Flavours.
+            Welcome back! Here's an overview of your quote requests.
           </p>
         </div>
 

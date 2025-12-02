@@ -19,8 +19,14 @@ type QuoteRequest = {
   id: string;
   requestNumber: string;
   materialName: string;
-  casNumber: string | null;
-  femaNumber: string | null;
+  materialType: string | null;
+  materialGrade: string | null;
+  thickness: string | null;
+  dimensions: { length?: number; width?: number; height?: number } | null;
+  finish: string | null;
+  tolerance: string | null;
+  weldingRequirements: string | null;
+  surfaceTreatment: string | null;
   quantityNeeded: string;
   unitOfMeasure: string;
   submitByDate: string;
@@ -36,10 +42,7 @@ type Supplier = {
 
 const quoteSchema = z.object({
   pricePerUnit: z.string().min(1, "Price is required"),
-  currency: z.string().default("AUD"),
-  moq: z.string().optional(),
   leadTime: z.string().min(1, "Lead time is required"),
-  validityDate: z.string().optional(),
   paymentTerms: z.string().optional(),
   additionalNotes: z.string().optional(),
 });
@@ -74,13 +77,10 @@ export default function QuoteSubmission() {
   const form = useForm<QuoteFormData>({
     resolver: zodResolver(quoteSchema),
     defaultValues: {
-      currency: "AUD",
       pricePerUnit: "",
       leadTime: "",
-      moq: "",
       paymentTerms: "",
       additionalNotes: "",
-      validityDate: "",
     },
   });
 
@@ -132,7 +132,7 @@ export default function QuoteSubmission() {
           </CardHeader>
           <CardContent>
             <p className="text-muted-foreground">
-              This quote request link is invalid or has expired. Please contact Essential Flavours if you believe this is an error.
+              This quote request link is invalid or has expired. Please contact us if you believe this is an error.
             </p>
           </CardContent>
         </Card>
@@ -162,7 +162,7 @@ export default function QuoteSubmission() {
               <Alert>
                 <FileText className="h-4 w-4" />
                 <AlertDescription>
-                  Your quote has been received and will be reviewed by the Essential Flavours procurement team.
+                  Your quote has been received and will be reviewed by our procurement team.
                   You will be contacted if your quote is selected.
                 </AlertDescription>
               </Alert>
@@ -237,7 +237,7 @@ export default function QuoteSubmission() {
           <CardHeader>
             <div className="flex items-start justify-between">
               <div>
-                <div className="text-sm font-medium text-primary mb-1">Essential Flavours</div>
+                <div className="text-sm font-medium text-primary mb-1">Supplier Portal</div>
                 <CardTitle className="text-3xl">Request for Quote</CardTitle>
                 <CardDescription className="mt-2">
                   {request.requestNumber}
@@ -267,16 +267,60 @@ export default function QuoteSubmission() {
                 <Label className="text-muted-foreground">Material Name</Label>
                 <div className="font-medium text-foreground mt-1">{request.materialName}</div>
               </div>
-              {request.casNumber && (
+              {request.materialType && (
                 <div>
-                  <Label className="text-muted-foreground">CAS Number</Label>
-                  <div className="font-medium text-foreground mt-1">{request.casNumber}</div>
+                  <Label className="text-muted-foreground">Material Type</Label>
+                  <div className="font-medium text-foreground mt-1 capitalize">
+                    {request.materialType.replace("_", " ")}
+                  </div>
                 </div>
               )}
-              {request.femaNumber && (
+              {request.materialGrade && (
                 <div>
-                  <Label className="text-muted-foreground">FEMA Number</Label>
-                  <div className="font-medium text-foreground mt-1">{request.femaNumber}</div>
+                  <Label className="text-muted-foreground">Material Grade</Label>
+                  <div className="font-medium text-foreground mt-1">{request.materialGrade}</div>
+                </div>
+              )}
+              {request.thickness && (
+                <div>
+                  <Label className="text-muted-foreground">Thickness</Label>
+                  <div className="font-medium text-foreground mt-1">{request.thickness} mm</div>
+                </div>
+              )}
+              {request.finish && (
+                <div>
+                  <Label className="text-muted-foreground">Finish</Label>
+                  <div className="font-medium text-foreground mt-1 capitalize">
+                    {request.finish.replace("_", " ")}
+                  </div>
+                </div>
+              )}
+              {request.dimensions && (request.dimensions.length || request.dimensions.width || request.dimensions.height) && (
+                <div>
+                  <Label className="text-muted-foreground">Dimensions</Label>
+                  <div className="font-medium text-foreground mt-1">
+                    {request.dimensions.length && `${request.dimensions.length}mm`}
+                    {request.dimensions.width && ` × ${request.dimensions.width}mm`}
+                    {request.dimensions.height && ` × ${request.dimensions.height}mm`}
+                  </div>
+                </div>
+              )}
+              {request.tolerance && (
+                <div>
+                  <Label className="text-muted-foreground">Tolerance</Label>
+                  <div className="font-medium text-foreground mt-1">{request.tolerance}</div>
+                </div>
+              )}
+              {request.weldingRequirements && (
+                <div className="md:col-span-2">
+                  <Label className="text-muted-foreground">Welding Requirements</Label>
+                  <div className="font-medium text-foreground mt-1">{request.weldingRequirements}</div>
+                </div>
+              )}
+              {request.surfaceTreatment && (
+                <div className="md:col-span-2">
+                  <Label className="text-muted-foreground">Surface Treatment</Label>
+                  <div className="font-medium text-foreground mt-1">{request.surfaceTreatment}</div>
                 </div>
               )}
               <div>
@@ -310,7 +354,7 @@ export default function QuoteSubmission() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-2">
                   <Label htmlFor="pricePerUnit">
-                    Price per {request.unitOfMeasure} <span className="text-destructive">*</span>
+                    Price per {request.unitOfMeasure} (AUD) <span className="text-destructive">*</span>
                   </Label>
                   <Input
                     id="pricePerUnit"
@@ -323,16 +367,6 @@ export default function QuoteSubmission() {
                   {form.formState.errors.pricePerUnit && (
                     <p className="text-sm text-destructive">{form.formState.errors.pricePerUnit.message}</p>
                   )}
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="currency">Currency</Label>
-                  <Input
-                    id="currency"
-                    defaultValue="AUD"
-                    data-testid="input-currency"
-                    {...form.register("currency")}
-                  />
                 </div>
 
                 <div className="space-y-2">
@@ -350,33 +384,13 @@ export default function QuoteSubmission() {
                   )}
                 </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="moq">Minimum Order Quantity (MOQ)</Label>
-                  <Input
-                    id="moq"
-                    placeholder="e.g., 100 kg"
-                    data-testid="input-moq"
-                    {...form.register("moq")}
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="paymentTerms">Payment Terms</Label>
+                <div className="space-y-2 md:col-span-2">
+                  <Label htmlFor="paymentTerms">Payment Terms (Optional)</Label>
                   <Input
                     id="paymentTerms"
                     placeholder="e.g., Net 30"
                     data-testid="input-payment-terms"
                     {...form.register("paymentTerms")}
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="validityDate">Quote Validity Date</Label>
-                  <Input
-                    id="validityDate"
-                    type="date"
-                    data-testid="input-validity-date"
-                    {...form.register("validityDate")}
                   />
                 </div>
               </div>

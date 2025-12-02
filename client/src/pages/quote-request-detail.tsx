@@ -24,8 +24,14 @@ interface QuoteRequestDetails {
     id: string;
     requestNumber: string;
     materialName: string;
-    casNumber: string | null;
-    femaNumber: string | null;
+    materialType: string | null;
+    materialGrade: string | null;
+    thickness: string | null;
+    dimensions: { length?: number; width?: number; height?: number } | null;
+    finish: string | null;
+    tolerance: string | null;
+    weldingRequirements: string | null;
+    surfaceTreatment: string | null;
     quantityNeeded: string;
     unitOfMeasure: string;
     submitByDate: string;
@@ -474,13 +480,59 @@ export default function QuoteRequestDetail() {
               </p>
             </div>
             <div>
-              <p className="text-sm font-medium text-muted-foreground">CAS Number</p>
-              <p className="text-base font-medium">{request.casNumber || "—"}</p>
+              <p className="text-sm font-medium text-muted-foreground">Material Type</p>
+              <p className="text-base font-medium capitalize">
+                {request.materialType ? request.materialType.replace("_", " ") : "—"}
+              </p>
             </div>
-            <div>
-              <p className="text-sm font-medium text-muted-foreground">FEMA Number</p>
-              <p className="text-base font-medium">{request.femaNumber || "—"}</p>
-            </div>
+            {request.materialGrade && (
+              <div>
+                <p className="text-sm font-medium text-muted-foreground">Material Grade</p>
+                <p className="text-base font-medium">{request.materialGrade}</p>
+              </div>
+            )}
+            {request.thickness && (
+              <div>
+                <p className="text-sm font-medium text-muted-foreground">Thickness</p>
+                <p className="text-base font-medium">{request.thickness} mm</p>
+              </div>
+            )}
+            {request.finish && (
+              <div>
+                <p className="text-sm font-medium text-muted-foreground">Finish</p>
+                <p className="text-base font-medium capitalize">
+                  {request.finish.replace("_", " ")}
+                </p>
+              </div>
+            )}
+            {request.dimensions && (request.dimensions.length || request.dimensions.width || request.dimensions.height) && (
+              <div>
+                <p className="text-sm font-medium text-muted-foreground">Dimensions</p>
+                <p className="text-base font-medium">
+                  {request.dimensions.length && `${request.dimensions.length}mm`}
+                  {request.dimensions.width && ` × ${request.dimensions.width}mm`}
+                  {request.dimensions.height && ` × ${request.dimensions.height}mm`}
+                </p>
+              </div>
+            )}
+            {request.tolerance && (
+              <div>
+                <p className="text-sm font-medium text-muted-foreground">Tolerance</p>
+                <p className="text-base font-medium">{request.tolerance}</p>
+              </div>
+            )}
+            {request.weldingRequirements && (
+              <div className="col-span-2">
+                <p className="text-sm font-medium text-muted-foreground">Welding Requirements</p>
+                <p className="text-base font-medium">{request.weldingRequirements}</p>
+              </div>
+            )}
+            {request.surfaceTreatment && (
+              <div className="col-span-2">
+                <p className="text-sm font-medium text-muted-foreground">Surface Treatment</p>
+                <p className="text-base font-medium">{request.surfaceTreatment}</p>
+              </div>
+            )}
           </div>
           {request.additionalSpecifications && (
             <div className="mt-4">

@@ -1,28 +1,30 @@
 import { useQuery } from "@tanstack/react-query";
 import type { User } from "@shared/schema";
 
+// Demo mode: Return mock admin user
+const MOCK_ADMIN_USER: User = {
+  id: "demo-admin-user",
+  email: "admin@demo.com",
+  firstName: "Demo",
+  lastName: "Admin",
+  role: "admin",
+  active: true,
+  companyName: null,
+  profileImageUrl: null,
+  passwordHash: null,
+  passwordSetAt: null,
+  createdAt: new Date(),
+  updatedAt: new Date(),
+};
+
 export function useAuth() {
-  const { data: user, isLoading, error } = useQuery<User>({
-    queryKey: ["/api/auth/user"],
-    retry: false,
-    refetchOnWindowFocus: false,
-    refetchOnMount: true,
-    refetchOnReconnect: false,
-    staleTime: 5 * 60 * 1000,
-  });
-
-  // Extract error information
-  const errorResponse = error as any;
-  const accessDenied = errorResponse?.response?.status === 403;
-  const notRegisteredSupplier = errorResponse?.response?.data?.code === "NOT_REGISTERED_SUPPLIER";
-  const errorMessage = errorResponse?.response?.data?.message;
-
+  // In demo mode, always return mock admin user
   return {
-    user,
-    isLoading,
-    isAuthenticated: !!user,
-    accessDenied,
-    notRegisteredSupplier,
-    errorMessage,
+    user: MOCK_ADMIN_USER,
+    isLoading: false,
+    isAuthenticated: true,
+    accessDenied: false,
+    notRegisteredSupplier: false,
+    errorMessage: undefined,
   };
 }

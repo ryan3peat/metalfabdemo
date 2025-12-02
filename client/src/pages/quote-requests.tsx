@@ -240,9 +240,9 @@ export default function QuoteRequests() {
                           <p className="font-medium text-sm" data-testid={`text-material-${request.id}`}>
                             {request.materialName}
                           </p>
-                          {request.casNumber && (
-                            <p className="text-xs text-muted-foreground">
-                              CAS: {request.casNumber}
+                          {request.materialType && (
+                            <p className="text-xs text-muted-foreground capitalize">
+                              {request.materialType.replace("_", " ")}
                             </p>
                           )}
                         </div>

@@ -13,8 +13,15 @@ export function getSession() {
     ttl: sessionTtl,
     tableName: "sessions",
   });
+  // Use SESSION_SECRET from env, or generate a default for demo mode
+  const sessionSecret = process.env.SESSION_SECRET || 'demo-session-secret-change-in-production';
+  
+  if (!process.env.SESSION_SECRET) {
+    console.warn('⚠️  SESSION_SECRET not set. Using default for demo mode. Set SESSION_SECRET in .env for production.');
+  }
+  
   return session({
-    secret: process.env.SESSION_SECRET!,
+    secret: sessionSecret,
     store: sessionStore,
     resave: false,
     saveUninitialized: false,
@@ -78,22 +85,8 @@ export async function setupAuth(app: Express) {
   });
 }
 
+// Demo mode: Bypass authentication - always allow access
 export const isAuthenticated: RequestHandler = async (req, res, next) => {
-  const user = req.user as any;
-
-  if (!req.isAuthenticated()) {
-    return res.status(401).json({ message: "Unauthorized" });
-  }
-
-  // Verify user is still active (for local auth)
-  if (user.authType === "local" && user.localAuthUser && !user.localAuthUser.active) {
-    return res.status(401).json({ message: "Account is inactive" });
-  }
-
-  // Verify supplier is still active
-  if (user.authType === "supplier" && user.supplierUser && !user.supplierUser.active) {
-    return res.status(401).json({ message: "Account is inactive" });
-  }
-
+  // In demo mode, always proceed without checking authentication
   return next();
 };

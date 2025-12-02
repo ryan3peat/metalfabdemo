@@ -1,4 +1,4 @@
-import { Home, Users, FileText, Settings, LogOut, User, BarChart3, Building2 } from "lucide-react";
+import { Home, Users, FileText, Settings, LogOut, User, BarChart3, Building2, UserPlus } from "lucide-react";
 import {
   Sidebar,
   SidebarContent,
@@ -32,6 +32,16 @@ const adminMenuItems = [
     title: "Suppliers",
     url: "/suppliers",
     icon: Building2,
+  },
+  {
+    title: "Approve Supplier",
+    url: "/approve-supplier",
+    icon: UserPlus,
+  },
+  {
+    title: "Supplier Applications",
+    url: "/supplier-applications",
+    icon: Users,
   },
   {
     title: "User Management",
@@ -99,11 +109,11 @@ export function AppSidebar() {
         <div className="p-6 border-b border-border">
           <div className="flex items-center gap-2">
             <div className="h-10 w-10 rounded bg-primary flex items-center justify-center">
-              <span className="text-primary-foreground font-semibold text-sm">EF</span>
+              <span className="text-primary-foreground font-semibold text-sm">SP</span>
             </div>
             <div>
-              <h2 className="font-medium text-foreground">Essential Flavours</h2>
-              <p className="text-xs text-muted-foreground">Supplier Portal</p>
+              <h2 className="font-medium text-foreground">Supplier Portal</h2>
+              <p className="text-xs text-muted-foreground">Metal Fabrication</p>
             </div>
           </div>
         </div>

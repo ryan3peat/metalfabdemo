@@ -24,6 +24,9 @@ import QuoteSubmission from "@/pages/quote-submission";
 import SupplierQuoteDetail from "@/pages/supplier-quote-detail";
 import VerifyLogin from "@/pages/verify-login";
 import SetPassword from "@/pages/set-password";
+import ApproveSupplier from "@/pages/approve-supplier";
+import SupplierApplications from "@/pages/supplier-applications";
+import SupplierApplicationDetail from "@/pages/supplier-application-detail";
 
 function PublicRouter() {
   return (
@@ -64,6 +67,9 @@ function AuthenticatedRouter() {
       {isAdmin && <Route path="/quote-requests/create" component={CreateQuoteRequest} />}
       {isAdmin && <Route path="/quote-requests/:requestId/quotes/:quoteId" component={QuoteDetail} />}
       {isAdmin && <Route path="/quote-requests/:id" component={QuoteRequestDetail} />}
+      {isAdmin && <Route path="/approve-supplier" component={ApproveSupplier} />}
+      {isAdmin && <Route path="/supplier-applications" component={SupplierApplications} />}
+      {isAdmin && <Route path="/supplier-applications/:id" component={SupplierApplicationDetail} />}
       {isAdmin && <Route path="/users" component={UserManagement} />}
       {/* Supplier routes */}
       <Route path="/supplier/dashboard" component={SupplierDashboard} />
@@ -75,39 +81,21 @@ function AuthenticatedRouter() {
 }
 
 function Router() {
-  const { isAuthenticated, isLoading } = useAuth();
+  const { isAuthenticated } = useAuth();
   const [location] = useLocation();
 
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-center space-y-4">
-          <div className="h-8 w-8 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto"></div>
-          <p className="text-muted-foreground">Loading...</p>
-        </div>
-      </div>
-    );
-  }
-
+  // Demo mode: All routes are publicly accessible
   // Public routes that don't require authentication
   if (location.startsWith('/quote-submission/') || location.startsWith('/verify-login') || location.startsWith('/set-password')) {
     return <PublicRouter />;
   }
 
-  if (!isAuthenticated) {
-    return (
-      <Switch>
-        <Route path="/" component={Landing} />
-        <Route component={Landing} />
-      </Switch>
-    );
-  }
-
+  // In demo mode, always show authenticated router
   return <AuthenticatedRouter />;
 }
 
 function AppContent() {
-  const { isAuthenticated, isLoading, user } = useAuth();
+  const { isAuthenticated, user } = useAuth();
 
   const style = {
     "--sidebar-width": "20rem",
@@ -116,7 +104,8 @@ function AppContent() {
 
   const isAdmin = user?.role === 'admin' || user?.role === 'procurement';
 
-  if (!isLoading && isAuthenticated) {
+  // Demo mode: Always show sidebar layout
+  if (isAuthenticated) {
     return (
       <SidebarProvider style={style as React.CSSProperties}>
         <div className="flex h-screen w-full">
