@@ -284,3 +284,4 @@ BEGIN
     RAISE NOTICE '✅ Database setup complete! All tables, enums, and indexes have been created.';
 END $$;
 
+

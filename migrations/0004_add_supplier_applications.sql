@@ -58,3 +58,4 @@ CREATE TABLE IF NOT EXISTS "supplier_applications" (
 CREATE INDEX IF NOT EXISTS "idx_supplier_applications_status" ON "supplier_applications" ("status");
 CREATE INDEX IF NOT EXISTS "idx_supplier_applications_email" ON "supplier_applications" ("email");
 
+

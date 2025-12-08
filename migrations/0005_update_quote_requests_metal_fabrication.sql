@@ -17,3 +17,4 @@ ALTER TABLE "quote_requests"
   DROP COLUMN IF EXISTS "material_origin",
   DROP COLUMN IF EXISTS "packaging_requirements";
 
+
