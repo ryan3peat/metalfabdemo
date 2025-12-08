@@ -1919,7 +1919,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   const httpServer = createServer(app);
   
   // Initialize WebSocket notification service
-  notificationService.initialize(httpServer);
+  if (!process.env.VERCEL && process.env.ENABLE_WEBSOCKETS !== 'false') {
+    notificationService.initialize(httpServer);
+  }
+  
 
   return httpServer;
 }
