@@ -218,8 +218,9 @@ export default function QuoteRequests() {
               )}
             </div>
           ) : (
-            {/* Desktop Table View */}
-            <div className="hidden md:block border border-border rounded-md overflow-x-auto">
+            <>
+              {/* Desktop Table View */}
+              <div className="hidden md:block border border-border rounded-md overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -408,7 +409,8 @@ export default function QuoteRequests() {
                   </CardContent>
                 </Card>
               ))}
-            </div>
+              </div>
+            </>
           )}
 
           {filteredRequests.length > 0 && (
