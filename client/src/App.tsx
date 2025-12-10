@@ -27,11 +27,8 @@ import ApproveSupplier from "@/pages/approve-supplier";
 import SupplierApplications from "@/pages/supplier-applications";
 import SupplierApplicationDetail from "@/pages/supplier-application-detail";
 import { RoleToggle } from "@/components/role-toggle";
-import { LeadCaptureModal } from "@/components/LeadCaptureModal";
-import { useSessionTimer } from "@/hooks/useSessionTimer";
+import { ContactUsModal } from "@/components/ContactUsModal";
 import { useState, useEffect } from "react";
-import { PageTransition } from "@/components/PageTransition";
-import { AnimatePresence } from "framer-motion";
 
 function PublicRouter() {
   return (
@@ -126,12 +123,7 @@ function Router() {
 
 function AppContent() {
   const { isAuthenticated, user } = useAuth();
-  const { shouldShowPopup, dismissPopup, markSubmitted } = useSessionTimer(30, 2);
-  const [leadOpen, setLeadOpen] = useState(false);
-
-  useEffect(() => {
-    setLeadOpen(shouldShowPopup);
-  }, [shouldShowPopup]);
+  const [contactOpen, setContactOpen] = useState(false);
 
   const style = {
     "--sidebar-width": "20rem",
@@ -150,7 +142,7 @@ function AppContent() {
             <header className="flex items-center justify-between p-4 border-b border-border">
               <SidebarTrigger data-testid="button-sidebar-toggle" />
               <div className="flex items-center gap-2">
-                <RoleToggle />
+                <RoleToggle onContactClick={() => setContactOpen(true)} />
                 {isAdmin && <NotificationBell />}
               </div>
             </header>
@@ -159,16 +151,9 @@ function AppContent() {
             </main>
           </div>
         </div>
-        <LeadCaptureModal
-          isOpen={leadOpen}
-          onClose={() => {
-            setLeadOpen(false);
-            dismissPopup();
-          }}
-          onSubmitted={() => {
-            markSubmitted();
-            setLeadOpen(false);
-          }}
+        <ContactUsModal
+          isOpen={contactOpen}
+          onClose={() => setContactOpen(false)}
         />
       </SidebarProvider>
     );

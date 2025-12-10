@@ -38,7 +38,7 @@ export function generateQuoteSubmissionUrl(requestId: string, token: string): st
 /**
  * Creates HTML email template for RFQ notification
  */
-function createRFQEmailTemplate(data: RFQEmailData, supplierName: string): string {
+export function createRFQEmailTemplate(data: RFQEmailData, supplierName: string): string {
   const submitByFormatted = data.submitByDate.toLocaleDateString('en-AU', {
     day: 'numeric',
     month: 'long',

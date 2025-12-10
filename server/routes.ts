@@ -9,7 +9,7 @@ import localPassport from "./auth/localAuth";
 import { hashPassword, validatePasswordComplexity } from "./auth/localAuth";
 import { insertUserSchema, insertSupplierSchema, insertSupplierQuoteSchema, insertDocumentRequestSchema, insertSupplierApplicationSchema, insertDemoLeadSchema, demoLeads } from "@shared/schema";
 import { generateAccessToken, generateQuoteSubmissionUrl } from "./email/emailService";
-import { emailService } from "./email/hybridEmailService";
+import { emailService } from "./email/googleGmailEmailService";
 import { validateQuoteAccessToken } from "./middleware/tokenAuth";
 import { requireSupplierAccess } from "./middleware/supplierAuth";
 import authRoutes from "./routes/authRoutes";
@@ -1792,6 +1792,58 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.error("Error capturing lead:", error);
       // In demo mode, don't fail the user even if DB is unavailable
       res.status(200).json({ success: true, message: "Lead captured (demo mode fallback)" });
+    }
+  });
+
+  // Contact form endpoint
+  app.post('/api/contact', async (req: any, res) => {
+    try {
+      const { name, position, email, countryCode, mobileNumber, otherInfo, timestamp } = req.body;
+
+      // Basic validation
+      if (!name || !position || !email || !countryCode || !mobileNumber) {
+        return res.status(400).json({
+          message: "Missing required fields",
+        });
+      }
+
+      // Validate email format
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(email)) {
+        return res.status(400).json({
+          message: "Invalid email format",
+        });
+      }
+
+      const contactData = {
+        name,
+        position,
+        email,
+        countryCode,
+        mobileNumber,
+        otherInfo: otherInfo || '',
+        timestamp: timestamp || new Date().toISOString(),
+      };
+
+      // Send email via Gmail
+      const recipientEmail = process.env.CONTACT_EMAIL || process.env.SENDER_EMAIL || 'admin@metalfabdemo.com';
+      
+      const result = await emailService.sendContactEmail(contactData, recipientEmail);
+      
+      if (!result.success) {
+        console.error(`❌ Failed to send contact email: ${result.error}`);
+        throw new Error(result.error || 'Failed to send contact email');
+      }
+      
+      console.log(`✅ Contact form email sent successfully to ${recipientEmail}`);
+
+      res.json({ success: true, message: "Contact form submitted successfully" });
+    } catch (error) {
+      console.error("Error processing contact form:", error);
+      res.status(500).json({ 
+        message: "Failed to process contact form",
+        error: error instanceof Error ? error.message : "Unknown error"
+      });
     }
   });
 

@@ -1,7 +1,7 @@
 import express from 'express';
 import type { Request, Response } from 'express';
 import { storage } from '../storage';
-import { emailService } from '../email/hybridEmailService';
+import { emailService } from '../email/googleGmailEmailService';
 import { generateMagicLinkToken, hashToken, normalizeEmail } from '../auth/magicLink';
 import { createRateLimiter, createEmailRateLimiter } from '../auth/rateLimiter';
 import { getBaseUrl } from '../utils/baseUrl';

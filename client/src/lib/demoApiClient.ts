@@ -510,6 +510,19 @@ function handlePost(path: string, body: any): HandlerResult | null {
     return { status: 200, data: application };
   }
 
+  if (path === "/api/contact") {
+    // In demo mode, just return success without actually sending email
+    // In production, this would send via Google Gmail API
+    console.log("📧 Contact form submission (demo mode):", body);
+    return { 
+      status: 200, 
+      data: { 
+        success: true, 
+        message: "Contact form submitted successfully" 
+      } 
+    };
+  }
+
   return null;
 }
 
