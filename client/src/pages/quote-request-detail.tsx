@@ -139,7 +139,7 @@ export default function QuoteRequestDetail() {
 
   if (isLoading) {
     return (
-      <div className="p-6 flex flex-col items-center justify-center min-h-[400px]">
+      <div className="p-4 sm:p-6 flex flex-col items-center justify-center min-h-[400px]">
         <div className="h-8 w-8 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
         <p className="text-sm text-muted-foreground mt-4">Loading quote request details...</p>
       </div>
@@ -148,11 +148,11 @@ export default function QuoteRequestDetail() {
 
   if (!data) {
     return (
-      <div className="p-6">
+      <div className="p-4 sm:p-6">
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-12">
             <h3 className="text-lg font-medium text-foreground mb-2">Quote Request Not Found</h3>
-            <p className="text-sm text-muted-foreground mb-6">
+            <p className="text-sm text-muted-foreground mb-6 text-center px-4">
               The quote request you're looking for doesn't exist or you don't have permission to view it.
             </p>
             <Link href="/quote-requests">
@@ -186,25 +186,25 @@ export default function QuoteRequestDetail() {
   const pendingSuppliers = suppliers.filter(s => s.quote === null);
 
   return (
-    <div className="p-6 space-y-6">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
+    <div className="p-4 sm:p-6 space-y-4 sm:space-y-6">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4 flex-1 min-w-0">
           <Link href="/quote-requests">
-            <Button variant="ghost" size="sm" data-testid="button-back">
+            <Button variant="ghost" size="sm" data-testid="button-back" className="flex-shrink-0">
               <ArrowLeft className="h-4 w-4 mr-2" />
               Back
             </Button>
           </Link>
-          <div>
-            <h1 className="text-2xl font-semibold text-foreground" data-testid="text-rfq-number">
+          <div className="flex-1 min-w-0">
+            <h1 className="text-xl sm:text-2xl font-semibold text-foreground break-words" data-testid="text-rfq-number">
               {request.requestNumber} • {request.materialName}
             </h1>
-            <p className="text-sm text-muted-foreground mt-1">
+            <p className="text-xs sm:text-sm text-muted-foreground mt-1">
               View and compare supplier quotes
             </p>
           </div>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
           <Badge
             variant="outline"
             className={`${statusColors[request.status]} uppercase text-xs font-semibold`}
@@ -217,14 +217,15 @@ export default function QuoteRequestDetail() {
             size="sm"
             onClick={() => setShowDeleteDialog(true)}
             data-testid="button-delete-request"
+            className="text-xs sm:text-sm"
           >
-            <Trash2 className="h-4 w-4 mr-2" />
-            Delete Request
+            <Trash2 className="h-4 w-4 sm:mr-2" />
+            <span className="hidden sm:inline">Delete Request</span>
           </Button>
         </div>
       </div>
 
-      <div className="grid gap-6 md:grid-cols-3">
+      <div className="grid gap-4 sm:gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between gap-1 space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Quotes Received</CardTitle>

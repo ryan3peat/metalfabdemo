@@ -239,23 +239,23 @@ export default function CreateQuoteRequest() {
   );
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-4 sm:p-6 space-y-4 sm:space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold text-foreground">Create Quote Request</h1>
-        <p className="text-sm text-muted-foreground mt-1">
+        <h1 className="text-xl sm:text-2xl font-semibold text-foreground">Create Quote Request</h1>
+        <p className="text-xs sm:text-sm text-muted-foreground mt-1">
           Request quotes from suppliers for raw materials
         </p>
       </div>
 
       {/* Step Indicator */}
       <Card>
-        <CardContent className="p-6">
-          <div className="flex items-center justify-between">
+        <CardContent className="p-4 sm:p-6">
+          <div className="flex items-center justify-between overflow-x-auto pb-2 -mx-2 px-2">
             {steps.map((step, index) => (
-              <div key={step.id} className="flex items-center flex-1">
-                <div className="flex flex-col items-center">
+              <div key={step.id} className="flex items-center flex-1 min-w-0">
+                <div className="flex flex-col items-center min-w-0">
                   <div
-                    className={`flex items-center justify-center h-10 w-10 rounded-full border-2 transition-colors ${
+                    className={`flex items-center justify-center h-8 w-8 sm:h-10 sm:w-10 rounded-full border-2 transition-colors flex-shrink-0 ${
                       currentStep === step.id
                         ? "border-primary bg-primary text-primary-foreground"
                         : currentStep > step.id
@@ -264,16 +264,16 @@ export default function CreateQuoteRequest() {
                     }`}
                     data-testid={`step-indicator-${step.id}`}
                   >
-                    <step.icon className="h-5 w-5" />
+                    <step.icon className="h-4 w-4 sm:h-5 sm:w-5" />
                   </div>
-                  <span className={`text-xs mt-2 font-medium ${
+                  <span className={`text-[10px] sm:text-xs mt-1 sm:mt-2 font-medium text-center truncate w-full ${
                     currentStep === step.id ? "text-foreground" : "text-muted-foreground"
                   }`}>
                     {step.name}
                   </span>
                 </div>
                 {index < steps.length - 1 && (
-                  <div className={`flex-1 h-0.5 mx-4 ${
+                  <div className={`flex-1 h-0.5 mx-1 sm:mx-4 min-w-[20px] ${
                     currentStep > step.id ? "bg-primary" : "bg-border"
                   }`} />
                 )}
@@ -935,15 +935,16 @@ export default function CreateQuoteRequest() {
 
           {/* Navigation Buttons */}
           <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between gap-4">
-                <div>
+            <CardContent className="p-4 sm:p-6">
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 sm:gap-4">
+                <div className="flex-1 sm:flex-none">
                   {currentStep > 1 && (
                     <Button
                       type="button"
                       variant="outline"
                       onClick={previousStep}
                       data-testid="button-previous"
+                      className="w-full sm:w-auto"
                     >
                       <ChevronLeft className="h-4 w-4 mr-2" />
                       Previous
@@ -951,13 +952,14 @@ export default function CreateQuoteRequest() {
                   )}
                 </div>
 
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2 sm:gap-3">
                   <Button
                     type="button"
                     variant="outline"
                     onClick={saveDraft}
                     disabled={saveDraftMutation.isPending}
                     data-testid="button-save-draft"
+                    className="flex-1 sm:flex-none"
                   >
                     {saveDraftMutation.isPending ? "Saving..." : "Save Draft"}
                   </Button>
@@ -967,6 +969,7 @@ export default function CreateQuoteRequest() {
                       type="button"
                       onClick={nextStep}
                       data-testid="button-next"
+                      className="flex-1 sm:flex-none"
                     >
                       Next
                       <ChevronRight className="h-4 w-4 ml-2" />
@@ -976,6 +979,7 @@ export default function CreateQuoteRequest() {
                       type="submit"
                       disabled={createMutation.isPending}
                       data-testid="button-submit-request"
+                      className="flex-1 sm:flex-none"
                     >
                       {createMutation.isPending ? "Submitting..." : "Submit Request"}
                     </Button>

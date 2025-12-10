@@ -136,16 +136,16 @@ export default function QuoteRequests() {
   console.log(`[DEBUG] Current statusFilter: "${statusFilter}", Total requests: ${requests.length}, Filtered: ${filteredRequests.length}`);
 
   return (
-    <div className="p-6 space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="p-4 sm:p-6 space-y-4 sm:space-y-6">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-semibold text-foreground">Quote Requests</h1>
-          <p className="text-sm text-muted-foreground mt-1">
+          <h1 className="text-xl sm:text-2xl font-semibold text-foreground">Quote Requests</h1>
+          <p className="text-xs sm:text-sm text-muted-foreground mt-1">
             Manage and track all quote requests
           </p>
         </div>
-        <Link href="/quote-requests/create">
-          <Button data-testid="button-create-request">
+        <Link href="/quote-requests/create" className="w-full sm:w-auto">
+          <Button data-testid="button-create-request" className="w-full sm:w-auto">
             <Plus className="h-4 w-4 mr-2" />
             New Request
           </Button>
@@ -218,7 +218,8 @@ export default function QuoteRequests() {
               )}
             </div>
           ) : (
-            <div className="border border-border rounded-md">
+            {/* Desktop Table View */}
+            <div className="hidden md:block border border-border rounded-md overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -319,6 +320,94 @@ export default function QuoteRequests() {
                   ))}
                 </TableBody>
               </Table>
+            </div>
+
+            {/* Mobile Card View */}
+            <div className="md:hidden space-y-3">
+              {filteredRequests.map((request) => (
+                <Card key={request.id} className="hover-elevate">
+                  <CardContent className="p-4 space-y-3">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex-1 min-w-0">
+                        <h3 className="font-semibold text-sm truncate" data-testid={`text-rfq-${request.id}`}>
+                          {request.requestNumber}
+                        </h3>
+                        <p className="text-sm font-medium mt-1" data-testid={`text-material-${request.id}`}>
+                          {request.materialName}
+                        </p>
+                        {request.materialType && (
+                          <p className="text-xs text-muted-foreground capitalize mt-0.5">
+                            {request.materialType.replace("_", " ")}
+                          </p>
+                        )}
+                      </div>
+                      <Badge
+                        variant="outline"
+                        className={`${statusColors[request.status]} uppercase text-xs font-semibold flex-shrink-0`}
+                        data-testid={`badge-status-${request.id}`}
+                      >
+                        {request.status}
+                      </Badge>
+                    </div>
+                    
+                    <div className="grid grid-cols-2 gap-3 text-sm">
+                      <div>
+                        <p className="text-xs text-muted-foreground">Quantity</p>
+                        <p className="font-medium">{request.quantityNeeded} {request.unitOfMeasure}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-muted-foreground">Quotes</p>
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium" data-testid={`text-quotes-${request.id}`}>
+                            {request.quotesReceived ?? 0} / {request.totalSuppliers ?? 0}
+                          </span>
+                          {(request.quotesReceived ?? 0) > 0 && (
+                            <Badge 
+                              variant="outline" 
+                              className="bg-green-500/10 text-green-500 border-green-500/20 text-xs"
+                            >
+                              {request.quotesReceived}
+                            </Badge>
+                          )}
+                        </div>
+                      </div>
+                      <div>
+                        <p className="text-xs text-muted-foreground">Submit By</p>
+                        <p className="font-medium">{format(new Date(request.submitByDate), "MMM d, yyyy")}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-muted-foreground">Created</p>
+                        <p className="font-medium">{format(new Date(request.createdAt), "MMM d, yyyy")}</p>
+                      </div>
+                    </div>
+
+                    <div className="flex gap-2 pt-2 border-t border-border">
+                      <Link href={`/quote-requests/${request.id}`} className="flex-1">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="w-full"
+                          data-testid={`button-view-${request.id}`}
+                        >
+                          View
+                        </Button>
+                      </Link>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setDeleteRequestId(request.id);
+                        }}
+                        data-testid={`button-delete-${request.id}`}
+                        className="flex-shrink-0"
+                      >
+                        <Trash2 className="h-4 w-4 text-destructive" />
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
             </div>
           )}
 

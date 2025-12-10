@@ -193,18 +193,18 @@ export default function SupplierDashboard() {
 
   return (
     <div className="p-4 sm:p-6 lg:p-8">
-      <div className="max-w-7xl mx-auto space-y-8">
+      <div className="max-w-7xl mx-auto space-y-6 sm:space-y-8">
         <div>
-          <h1 className="text-4xl font-medium text-foreground" data-testid="text-dashboard-title">
+          <h1 className="text-2xl sm:text-3xl lg:text-4xl font-medium text-foreground" data-testid="text-dashboard-title">
             Supplier Portal
           </h1>
-          <p className="text-muted-foreground mt-2" data-testid="text-welcome-message">
+          <p className="text-sm sm:text-base text-muted-foreground mt-1 sm:mt-2" data-testid="text-welcome-message">
             Welcome back! Here's an overview of your quote requests.
           </p>
         </div>
 
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
           <Card 
             className="hover-elevate cursor-pointer transition-all" 
             onClick={() => setActiveTab("ongoing")}

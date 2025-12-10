@@ -9,6 +9,7 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarFooter,
+  useSidebar,
 } from "@/components/ui/sidebar";
 import { useAuth } from "@/hooks/useAuth";
 import { Link, useLocation } from "wouter";
@@ -62,9 +63,17 @@ const supplierMenuItems = [
 export function AppSidebar() {
   const { user } = useAuth();
   const [location] = useLocation();
+  const { setOpenMobile, isMobile } = useSidebar();
   
   const isAdmin = user?.role === 'admin' || user?.role === 'procurement';
   const menuItems = isAdmin ? adminMenuItems : supplierMenuItems;
+
+  // Close sidebar on mobile when link is clicked
+  const handleLinkClick = () => {
+    if (isMobile) {
+      setOpenMobile(false);
+    }
+  };
 
   const logoutMutation = useMutation({
     mutationFn: async () => {
@@ -138,6 +147,7 @@ export function AppSidebar() {
                     >
                       <Link 
                         href={item.url}
+                        onClick={handleLinkClick}
                         data-testid={`link-${item.title.toLowerCase().replace(/\s+/g, '-')}`}
                       >
                         <item.icon className="h-4 w-4" />
